@@ -10,6 +10,7 @@ Library: D:\JAM\RedYMultijugador\RedYSistemasMultijugador\Temp\BurstOutput\Data\
 --linker-options=PdbAltPath="RedYMultijugador_Data/Plugins/x86_64/lib_burst_generated.pdb"
 --generate-link-xml=Temp\burst.link.xml
 --temp-folder=D:\JAM\RedYMultijugador\RedYSistemasMultijugador\Temp\Burst
+--debug=Full
 --key-folder=C:/Program Files/Unity/Hub/Editor/6000.0.16f1/Editor/Data/PlaybackEngines/WindowsStandaloneSupport
 --decode-folder=D:\JAM\RedYMultijugador\RedYSistemasMultijugador\Library\Burst
 --output=D:\JAM\RedYMultijugador\RedYSistemasMultijugador\Temp\BurstOutput\Data\Plugins\x86_64\lib_burst_generated
@@ -102,6 +103,7 @@ Library: D:\JAM\RedYMultijugador\RedYSistemasMultijugador\Temp\BurstOutput\Data\
 --linker-options=PdbAltPath="RedYMultijugador_Data/Plugins/x86_64/lib_burst_generated.pdb"
 --generate-link-xml=Temp\burst.link.xml
 --temp-folder=D:\JAM\RedYMultijugador\RedYSistemasMultijugador\Temp\Burst
+--debug=Full
 --key-folder=C:/Program Files/Unity/Hub/Editor/6000.0.16f1/Editor/Data/PlaybackEngines/WindowsStandaloneSupport
 --decode-folder=D:\JAM\RedYMultijugador\RedYSistemasMultijugador\Library\Burst
 --output=D:\JAM\RedYMultijugador\RedYSistemasMultijugador\Temp\BurstOutput\Data\Plugins\x86_64\lib_burst_generated
