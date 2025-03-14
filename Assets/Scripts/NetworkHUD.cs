@@ -41,11 +41,10 @@ public class NetworkHUD : MonoBehaviour
     // Peticion de movimiento para el jugador
     static void SubmitNewPosition()
     {
-        if (GUILayout.Button(NetworkManager.Singleton.IsServer ? "Move" : "Request
-        Position Change"))
+        if (GUILayout.Button(NetworkManager.Singleton.IsServer ? "Move" : "Request" +
+            "Position Change"))
         {
-            var playerObject =
-            NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject();
+            var playerObject = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject();
             var player = playerObject.GetComponent<Player>();
             player.Move();
         }
