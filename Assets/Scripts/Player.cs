@@ -12,10 +12,15 @@ public class Player : NetworkBehaviour
     public NetworkVariable<Color> NetworkColor = new NetworkVariable<Color>();
     private TMPro.TMP_Text textoVida;
 
-    // Evento que se lanza cuando se hace spawn de un objeto
-    // Hay que pensar que se lanza en cada instancia de cada cliente/servidor
-    //Ejercicio: Leer la nertwork variable de color, coger su valor y aplicarlo
-    //Objetivo: Cuando el cliente se conecta, tiene que ver el color de los otros clientes que ya estaban cambiados
+    /// <summary>
+    /// <para></para>
+    /// Method called when the NetworkObject associated with this script is spawned on the network.<br />
+    /// It's called after Unity's Start method for objects managed by Unity Netcode.<br />
+    /// HERE'S where you initialize network-related logic, like subscribing to NetworkVariable callbacks.<br />
+    /// <br />
+    /// For more information, visit:<br />
+    /// https://docs-multiplayer.unity3d.com/netcode/current/basics/networkbehavior/ <br />
+    /// </summary>
     public override void OnNetworkSpawn()
     {
         // Comprobamos si somos el propietario
@@ -49,6 +54,14 @@ public class Player : NetworkBehaviour
         textoVida.text = nuevaVida.ToString();
     }
 
+    /// <summary>
+    /// <para></para>
+    /// This method is triggered whenever the value of the NetworkColor variable changes, thanks to the OnValueChanged event,<br />
+    /// which ensures all connected clients automatically receive the updated value, which triggers this callback.<br />
+    /// It ensures that all clients update their local representation of the player's color.<br />
+    /// </summary>
+    /// <param name="colorAnterior"></param>
+    /// <param name="colorNuevo"></param>
     public void CambioColor(Color colorAnterior, Color colorNuevo)
     {
         Debug.Log("Color went from " + colorAnterior + " to " + colorNuevo);
@@ -64,6 +77,13 @@ public class Player : NetworkBehaviour
             NetworkSalud.Value -= cantidad; // 6º Si esto lo hace el servidor, llama al callback en los clientes
     }
 
+    /// <summary>
+    /// <para></para>
+    /// Helper method.<br />
+    /// Directly applies a given color to the player's material.<br />
+    /// Centralizes color application logic to avoid redundancy.<br />
+    /// </summary>
+    /// <param name="color"></param>
     public void CambiarColor(Color color)
     {
         if (IsServer)
@@ -72,6 +92,13 @@ public class Player : NetworkBehaviour
 
     }
 
+    /// <summary>
+    /// Remote Procedure Call method. Allows a client to send request to the server.
+    /// Executed on the server; initiated by any client.<br />
+    /// For more information: https://docs-multiplayer.unity3d.com/netcode/current/basics/networkbehavior/<br />
+    /// <br />
+    /// <para>This method creates a random color and forwards it to the ChangeColorClientRpc method.</para>
+    /// </summary>
     [ServerRpc(RequireOwnership = false)]
     public void RequestColorChangeServerRpc()
     {
@@ -83,6 +110,12 @@ public class Player : NetworkBehaviour
         }
     }
 
+    /// <summary>
+    /// Remote Procedure Call method. Allows the server to send instructions to all connected clients.<br />
+    /// For more information: https://docs-multiplayer.unity3d.com/netcode/current/basics/networkbehavior/<br />
+    /// <br />
+    /// This method calls the CambiarColor method and forwards the color it was provided.<br />
+    /// </summary>
     [ClientRpc]
     private void ChangeColorClientRpc(Color newColor)
     {
