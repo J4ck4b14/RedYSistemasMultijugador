@@ -17,7 +17,7 @@ public class Player : NetworkBehaviour
     //Ejercicio: Leer la nertwork variable de color, coger su valor y aplicarlo
     //Objetivo: Cuando el cliente se conecta, tiene que ver el color de los otros clientes que ya estaban cambiados
     public override void OnNetworkSpawn()
-    { 
+    {
         // Comprobamos si somos el propietario
         if (IsOwner)
         {
@@ -33,10 +33,12 @@ public class Player : NetworkBehaviour
             NetworkSalud.OnValueChanged += CambioVida;
             GetComponent<MeshRenderer>().material.color = NetworkColor.Value;
         }
-        if (!IsServer)
-        {
-            NetworkColor.OnValueChanged += CambioColor;
-        }
+
+        // Apply the current color when spawned
+        CambiarColor(NetworkColor.Value);
+
+        // Subscribe to color changes for all instancess
+        NetworkColor.OnValueChanged += CambioColor;
     }
 
     // 3º Metodo callback cuando cambia la vida
@@ -52,21 +54,39 @@ public class Player : NetworkBehaviour
         Debug.Log("Color went from " + colorAnterior + " to " + colorNuevo);
         // Tiene que hacer el cambio que ve el cliente
         CambiarColor(colorNuevo);
+
     }
 
     // 2º Un metodo que cambie la variable
     public void QuitarVida(int cantidad)
     {
-        if(IsServer)
+        if (IsServer)
             NetworkSalud.Value -= cantidad; // 6º Si esto lo hace el servidor, llama al callback en los clientes
     }
 
     public void CambiarColor(Color color)
     {
-        if(IsServer)
+        if (IsServer)
             NetworkColor.Value = color;
-            GetComponent<MeshRenderer>().material.color = color;
+        GetComponent<MeshRenderer>().material.color = color;
 
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void RequestColorChangeServerRpc()
+    {
+        if (IsServer)
+        {
+            Color newColor = new Color(Random.value, Random.value, Random.value);
+            NetworkColor.Value = newColor;
+            ChangeColorClientRpc(newColor);
+        }
+    }
+
+    [ClientRpc]
+    private void ChangeColorClientRpc(Color newColor)
+    {
+        CambiarColor(newColor);
     }
 
     // Funcion que mueve al jugador, solo puede ser ejecutada por el servidor
