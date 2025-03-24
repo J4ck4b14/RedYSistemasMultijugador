@@ -1,0 +1,70 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\Alumno\\Documents\\GitHub\\RedYSistemasMultijugador\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{5F525E45-0E55-AD33-50E0-99D3FA2A74B3}|Assembly-CSharp.csproj|c:\\users\\alumno\\documents\\github\\redysistemasmultijugador\\assets\\scripts2\\player.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{5F525E45-0E55-AD33-50E0-99D3FA2A74B3}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts2\\player.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{5F525E45-0E55-AD33-50E0-99D3FA2A74B3}|Assembly-CSharp.csproj|c:\\users\\alumno\\documents\\github\\redysistemasmultijugador\\assets\\scripts\\networkhud.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{5F525E45-0E55-AD33-50E0-99D3FA2A74B3}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\networkhud.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{5F525E45-0E55-AD33-50E0-99D3FA2A74B3}|Assembly-CSharp.csproj|C:\\Users\\Alumno\\Documents\\GitHub\\RedYSistemasMultijugador\\assets\\scripts\\player.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{5F525E45-0E55-AD33-50E0-99D3FA2A74B3}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\player.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Player.cs",
+              "DocumentMoniker": "C:\\Users\\Alumno\\Documents\\GitHub\\RedYSistemasMultijugador\\Assets\\Scripts2\\Player.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts2\\Player.cs",
+              "ToolTip": "C:\\Users\\Alumno\\Documents\\GitHub\\RedYSistemasMultijugador\\Assets\\Scripts2\\Player.cs",
+              "RelativeToolTip": "Assets\\Scripts2\\Player.cs",
+              "ViewState": "AgIAABgAAAAAAAAAAAAowDcAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-03-24T17:17:08.539Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "Player.cs",
+              "DocumentMoniker": "C:\\Users\\Alumno\\Documents\\GitHub\\RedYSistemasMultijugador\\Assets\\Scripts\\Player.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\Player.cs",
+              "ToolTip": "C:\\Users\\Alumno\\Documents\\GitHub\\RedYSistemasMultijugador\\Assets\\Scripts\\Player.cs",
+              "RelativeToolTip": "Assets\\Scripts\\Player.cs",
+              "ViewState": "AgIAAFMAAAAAAAAAAAAIwHIAAAANAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-03-24T17:03:37.004Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "NetworkHUD.cs",
+              "DocumentMoniker": "C:\\Users\\Alumno\\Documents\\GitHub\\RedYSistemasMultijugador\\Assets\\Scripts\\NetworkHUD.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\NetworkHUD.cs",
+              "ToolTip": "C:\\Users\\Alumno\\Documents\\GitHub\\RedYSistemasMultijugador\\Assets\\Scripts\\NetworkHUD.cs",
+              "RelativeToolTip": "Assets\\Scripts\\NetworkHUD.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAFcAAABSAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-03-24T17:01:26.46Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
