@@ -1,6 +1,7 @@
 using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.UI;
+using Unity.VisualScripting;
 
 public class PlayerAvatar : NetworkBehaviour
 {
@@ -88,6 +89,7 @@ public class PlayerAvatar : NetworkBehaviour
     private void OnHealthChange(int prevHealth, int newHealth)
     {
         // Si es el jugador local, actualizamos la interfaz 
+        
         // Si es otro jugador, actualizamos su barra de vida
     }
 

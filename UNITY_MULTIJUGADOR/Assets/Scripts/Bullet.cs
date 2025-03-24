@@ -13,5 +13,10 @@ public class Bullet : NetworkBehaviour
         destroyed = true;
 
         // Cuando el servidor detecta una colision de bala con un jugador
+        if (collision.gameObject.CompareTag("Player"))
+        {
+            collision.gameObject.GetComponent<PlayerAvatar>().DamagePlayer();
+            destroyed = true;
+        }
     }
 }
