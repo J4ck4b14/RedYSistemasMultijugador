@@ -68,14 +68,26 @@ public class NetworkHUD : MonoBehaviour
                 }
             }
             
-            // New button for clients && host
+            // New buttons for clients && host
             if (NetworkManager.Singleton.IsClient)
             {
                 if(GUILayout.Button("Request Color Change"))
                 {
                     var playerObject = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject();
                     var player = playerObject.GetComponent<Player>();
-                    player.RequestColorChangeServerRpc();
+                    player.RequestColorChangeServerRpc(new Color(0,0,0,0));
+                }
+                if (GUILayout.Button("Request Color Change\n(Blue)"))
+                {
+                    var playerObject = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject();
+                    var player = playerObject.GetComponent<Player>();
+                    player.RequestColorChangeServerRpc(Color.blue);
+                }
+                if (GUILayout.Button("Request Color Change\n(Red)"))
+                {
+                    var playerObject = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject();
+                    var player = playerObject.GetComponent<Player>();
+                    player.RequestColorChangeServerRpc(Color.red);
                 }
             }
         }

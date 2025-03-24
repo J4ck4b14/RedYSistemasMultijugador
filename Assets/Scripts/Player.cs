@@ -1,5 +1,5 @@
-using UnityEngine;
 using Unity.Netcode;
+using UnityEngine;
 
 [RequireComponent(typeof(NetworkObject))]
 public class Player : NetworkBehaviour
@@ -100,13 +100,22 @@ public class Player : NetworkBehaviour
     /// <para>This method creates a random color and forwards it to the ChangeColorClientRpc method.</para>
     /// </summary>
     [ServerRpc(RequireOwnership = false)]
-    public void RequestColorChangeServerRpc()
+    public void RequestColorChangeServerRpc(Color desiredColor)
     {
         if (IsServer)
         {
-            Color newColor = new Color(Random.value, Random.value, Random.value);
-            NetworkColor.Value = newColor;
-            ChangeColorClientRpc(newColor);
+            if (desiredColor == new Color(0,0,0,0))
+            {
+                Color newColor = new Color(Random.value, Random.value, Random.value);
+                NetworkColor.Value = newColor;
+                ChangeColorClientRpc(newColor);
+
+            }
+            else
+            {
+                NetworkColor.Value = desiredColor;
+                ChangeColorClientRpc(desiredColor);
+            }
         }
     }
 
@@ -136,7 +145,7 @@ public class Player : NetworkBehaviour
         // Si no somos el servidor, podemos pedir a este que haga el movimiento
         else
         {
-            if(IsClient)
+            if (IsClient)
                 SubmitPositionRequestServerRpc();
         }
     }
@@ -144,7 +153,7 @@ public class Player : NetworkBehaviour
     [ServerRpc] // Solo el servidor puede ejecutar estos metodos
     void SubmitPositionRequestServerRpc(ServerRpcParams rpcParams = default)
     {
-        if(IsServer)
+        if (IsServer)
             Position.Value = GetRandomPositionOnPlane();
     }
     [ClientRpc]
