@@ -2,7 +2,9 @@ using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.UI;
 using Unity.VisualScripting;
+using Unity.Netcode.Components;
 
+[RequireComponent(typeof(NetworkTransform))]
 public class PlayerAvatar : NetworkBehaviour
 {
     static int INITIAL_HEALTH = 100;
