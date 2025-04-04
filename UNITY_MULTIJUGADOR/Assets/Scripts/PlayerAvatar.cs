@@ -38,9 +38,15 @@ public class PlayerAvatar : NetworkBehaviour
     [SerializeField]
     private int shootVelocity = 50;
 
+    // New variables
+    public NetworkVariable<Color> playerColor = new NetworkVariable<Color>();
+    public NetworkVariable<bool> isDead = new NetworkVariable<bool>(false);
+    private Material playerMaterial;
+
     // Inicializacion
     void Start()
     {
+        playerMaterial = GetComponent<Renderer>().material;
         // Indicamos el ID del cliente en el nombre de su avatar
         this.gameObject.name = "Player" + OwnerClientId;
         controller = this.gameObject.GetComponent<CharacterController>();
@@ -52,6 +58,13 @@ public class PlayerAvatar : NetworkBehaviour
             playerCamera.gameObject.SetActive(false);
             healthText.gameObject.SetActive(false);
         }
+
+        if (IsOwner)
+        {
+            SetRandomColorServerRpc();
+            TeleportToSpawnPoint();
+        }
+
     }
 
     private void Update()
@@ -76,6 +89,20 @@ public class PlayerAvatar : NetworkBehaviour
 
         // Si es el avatar del jugador local
         UpdateInput();
+    }
+
+    [ServerRpc]
+    private void SetRandomColorServerRpc()
+    {
+        playerColor.Value = new Color(Random.value, Random.value, Random.value);
+    }
+
+    private void TeleportToSpawnPoint()
+    {
+        if(IsServer)
+        {
+            //transform.position = ;
+        }
     }
 
     // Comprueba input que se tenga que mandar al servidor

@@ -7,8 +7,6 @@ public class Player : NetworkBehaviour
     // Informacion que queremos sincronizar
     public NetworkVariable<Vector3> Position = new NetworkVariable<Vector3>();
 
-
-
     // Evento que se lanza cuando se hace spawn de un objeto
     // Hay que pensar que se lanza en cada instancia de cada cliente/servidor
     public override void OnNetworkSpawn()
