@@ -64,6 +64,16 @@ public class PlayerAvatar : NetworkBehaviour
             SetRandomColorServerRpc();
             TeleportToSpawnPoint();
         }
+        if (IsLocalPlayer && healthSlider != null)// Solo el jugador local actualiza su slider al iniciar
+        {
+            healthSlider.gameObject.SetActive(false); // Lo ocultamos porque solo otros lo ven
+            healthText.text = "HP: " + currentHealth.Value;
+        }
+        // Para otros jugadores, activamos la barra
+if (!IsLocalPlayer && healthSlider != null)
+{
+    healthSlider.value = currentHealth.Value / (float)INITIAL_HEALTH;
+}
 
     }
 
@@ -80,7 +90,7 @@ public class PlayerAvatar : NetworkBehaviour
         }
 
         // Si no es el avatar local, solo actualizar la barrada de vida
-        if (!IsLocalPlayer)
+        if (!IsLocalPlayer && !IsServer)
         {
             // Hacemos que la barra de vida mire hacia el jugador local
             UpdateHealthBar();
@@ -117,9 +127,17 @@ public class PlayerAvatar : NetworkBehaviour
     // Cuando la vida cambia, actualizamos la interfaz
     private void OnHealthChange(int prevHealth, int newHealth)
     {
-        // Si es el jugador local, actualizamos la interfaz 
-        
-        // Si es otro jugador, actualizamos su barra de vida
+        // Si es el jugador local, actualizamos el texto de vida
+    if (IsLocalPlayer && healthText != null)
+        {
+            healthText.text = "HP: " + newHealth.ToString();
+        }
+
+        // Si es otro jugador, actualizamos el Slider de su barra de vida
+        if (!IsLocalPlayer && healthSlider != null)
+        {
+            healthSlider.value = newHealth / (float)INITIAL_HEALTH;
+        }
     }
 
     // Orienta la barra de vida al jugador principal
