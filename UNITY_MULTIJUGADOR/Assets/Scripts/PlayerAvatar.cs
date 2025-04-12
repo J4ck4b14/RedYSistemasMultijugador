@@ -42,11 +42,18 @@ public class PlayerAvatar : NetworkBehaviour
     public NetworkVariable<Color> playerColor = new NetworkVariable<Color>();
     public NetworkVariable<bool> isDead = new NetworkVariable<bool>(false);
     private Material playerMaterial;
+    private static bool[] spawnUsed = new bool[4]; // Máximo 4 jugadores
+    private static Transform[] spawnPoints;
 
     // Inicializacion
     void Start()
     {
         playerMaterial = GetComponent<Renderer>().material;
+        playerMaterial.color = playerColor.Value;
+        playerColor.OnValueChanged += (Color prev, Color curr) =>
+        {
+            playerMaterial.color = curr;
+        };
         // Indicamos el ID del cliente en el nombre de su avatar
         this.gameObject.name = "Player" + OwnerClientId;
         controller = this.gameObject.GetComponent<CharacterController>();
@@ -59,24 +66,35 @@ public class PlayerAvatar : NetworkBehaviour
             healthText.gameObject.SetActive(false);
         }
 
-        if (IsOwner)
-        {
-            SetRandomColorServerRpc();
-            TeleportToSpawnPoint();
-        }
+        //if (IsOwner)
+        //{
+        //    SetRandomColorServerRpc();
+        //    TeleportToSpawnPoint();
+        //}
         if (IsLocalPlayer && healthSlider != null)// Solo el jugador local actualiza su slider al iniciar
         {
             healthSlider.gameObject.SetActive(false); // Lo ocultamos porque solo otros lo ven
             healthText.text = "HP: " + currentHealth.Value;
         }
         // Para otros jugadores, activamos la barra
-if (!IsLocalPlayer && healthSlider != null)
-{
-    healthSlider.value = currentHealth.Value / (float)INITIAL_HEALTH;
-}
+            if (!IsLocalPlayer && healthSlider != null)
+                {
+                    healthSlider.value = currentHealth.Value / (float)INITIAL_HEALTH;
+                }
 
     }
+    public override void OnNetworkSpawn()
+    {
+        if (IsServer)
+        {
+            TeleportToSpawnPoint();
+        }
 
+        if (IsOwner)
+        {
+            SetRandomColorServerRpc();
+        }
+    }
     private void Update()
     {
         // El servidor tiene que realizar sus calculos para los jugadores
@@ -109,9 +127,29 @@ if (!IsLocalPlayer && healthSlider != null)
 
     private void TeleportToSpawnPoint()
     {
-        if(IsServer)
+
+        if (IsServer && spawnPoints == null || spawnPoints.Length == 0)
         {
-            //transform.position = ;
+            GameObject[] spawns = GameObject.FindGameObjectsWithTag("Spawnpoint");
+            spawnPoints = new Transform[spawns.Length];
+            spawnUsed = new bool[spawns.Length];
+
+            for (int i = 0; i < spawns.Length; i++)
+            {
+                spawnPoints[i] = spawns[i].transform;
+            }
+        }
+
+        for (int i = 0; i < spawnPoints.Length; i++)
+        {
+            Debug.Log("Teleporting to spawn pointss: " + spawnPoints[i].name);
+            if (!spawnUsed[i])
+            {
+                Debug.Log("Teleporting to spawn point: " + spawnPoints[i].name);
+                transform.position = spawnPoints[i].position;
+                spawnUsed[i] = true;
+                break;
+            }
         }
     }
 
