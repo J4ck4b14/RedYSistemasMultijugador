@@ -54,13 +54,14 @@ public class PlayerAvatar : NetworkBehaviour
         {
             playerMaterial.color = curr;
         };
+        
         // Indicamos el ID del cliente en el nombre de su avatar
         this.gameObject.name = "Player" + OwnerClientId;
         controller = this.gameObject.GetComponent<CharacterController>();
         // Actualizamos la interfaz en el callback de salud
         currentHealth.OnValueChanged += OnHealthChange;
         // Cuando no es nuestro avatar, desactivamos la interfaz y la camara
-        if(!IsLocalPlayer)
+        if (!IsLocalPlayer)
         {
             playerCamera.gameObject.SetActive(false);
             healthText.gameObject.SetActive(false);
@@ -77,36 +78,47 @@ public class PlayerAvatar : NetworkBehaviour
             healthText.text = "HP: " + currentHealth.Value;
         }
         // Para otros jugadores, activamos la barra
-            if (!IsLocalPlayer && healthSlider != null)
-                {
-                    healthSlider.value = currentHealth.Value / (float)INITIAL_HEALTH;
-                }
+        if (!IsLocalPlayer && healthSlider != null)
+        {
+            healthSlider.value = currentHealth.Value / (float)INITIAL_HEALTH;
+        }
 
     }
+
+    // Esta función se ejecuta automáticamente cuando el objeto de red ha sido completamente inicializado
+    // Es el lugar adecuado para hacer lógica relacionada con la red, como mover el jugador a su spawn
     public override void OnNetworkSpawn()
     {
         if (IsServer)
         {
-            TeleportToSpawnPoint();
+            TeleportToSpawnPoint(); // Solo el servidor decide la posición inicial
         }
 
         if (IsOwner)
         {
-            SetRandomColorServerRpc();
+            SetRandomColorServerRpc(); // Cada jugador solicita un color aleatorio al servidor
+        }
+        // Por si ya está muerto al spawnear
+        if (isDead.Value)
+        {
+            playerMaterial.color = Color.black;
         }
     }
     private void Update()
     {
         // El servidor tiene que realizar sus calculos para los jugadores
-        if(IsServer)
+        if (IsServer)
         {
+            DamagePlayer();
             // El servidor calcula el tiempo que queda para disparar
-            if(rechargeTime > 0)
+            if (rechargeTime > 0)
             {
                 rechargeTime -= Time.deltaTime;
             }
         }
-
+        // Si el jugador está muerto, no hace nada más
+        if (isDead.Value)
+            return;
         // Si no es el avatar local, solo actualizar la barrada de vida
         if (!IsLocalPlayer && !IsServer)
         {
@@ -125,9 +137,11 @@ public class PlayerAvatar : NetworkBehaviour
         playerColor.Value = new Color(Random.value, Random.value, Random.value);
     }
 
+    // Esta función mueve al jugador a un punto de aparición libre
+    // Se ejecuta solo en el servidor para asegurar consistencia en todos los clientes
     private void TeleportToSpawnPoint()
     {
-
+        // Si el servidor aún no ha recopilado los puntos de spawn
         if (IsServer && spawnPoints == null || spawnPoints.Length == 0)
         {
             GameObject[] spawns = GameObject.FindGameObjectsWithTag("Spawnpoint");
@@ -139,13 +153,13 @@ public class PlayerAvatar : NetworkBehaviour
                 spawnPoints[i] = spawns[i].transform;
             }
         }
-
+        // Buscamos un punto libre y movemos al jugador allí
         for (int i = 0; i < spawnPoints.Length; i++)
         {
-            Debug.Log("Teleporting to spawn pointss: " + spawnPoints[i].name);
+          
             if (!spawnUsed[i])
             {
-                Debug.Log("Teleporting to spawn point: " + spawnPoints[i].name);
+               
                 transform.position = spawnPoints[i].position;
                 spawnUsed[i] = true;
                 break;
@@ -166,7 +180,7 @@ public class PlayerAvatar : NetworkBehaviour
     private void OnHealthChange(int prevHealth, int newHealth)
     {
         // Si es el jugador local, actualizamos el texto de vida
-    if (IsLocalPlayer && healthText != null)
+        if (IsLocalPlayer && healthText != null)
         {
             healthText.text = "HP: " + newHealth.ToString();
         }
@@ -189,6 +203,8 @@ public class PlayerAvatar : NetworkBehaviour
     [ServerRpc]
     void UpdatePlayerServerRpc(float axisH, float axisV, bool shootPressed)
     {
+        if (isDead.Value) return; // El servidor ignora si está muerto
+
         groundedPlayer = controller.isGrounded;
         if (groundedPlayer && playerVelocity.y < 0)
         {
@@ -218,7 +234,7 @@ public class PlayerAvatar : NetworkBehaviour
         if (!IsServer)
             return;
 
-        if(rechargeTime <= 0)
+        if (rechargeTime <= 0)
         {
             rechargeTime = SHOOTING_RATE;
             // Spawn bullet and add movement
@@ -228,7 +244,17 @@ public class PlayerAvatar : NetworkBehaviour
     // Solo el servidor debe poder quitar vida
     public void DamagePlayer()
     {
-        if(IsServer)
-            currentHealth.Value -= BULLET_DAMAGE;
+        if (IsServer)
+        {
+            currentHealth.Value -= BULLET_DAMAGE; //Quitamos el valor del daño establecido
+
+            if (currentHealth.Value <= 0 && !isDead.Value)
+            {
+                isDead.Value = true;
+                playerColor.Value = Color.black; // Se sincroniza a todos los clientes
+                Debug.Log("Player " + OwnerClientId + " is dead");
+            }
+        }
+
     }
 }
