@@ -1,260 +1,387 @@
 using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.UI;
-using Unity.VisualScripting;
 using Unity.Netcode.Components;
 
+/// <summary>
+/// <para>Networked player avatar handling movement, shooting, health, and visual representation.</para>
+/// This class manages all player-related gameplay systems and synchronizes them across the network.
+/// </summary>
 [RequireComponent(typeof(NetworkTransform))]
 public class PlayerAvatar : NetworkBehaviour
 {
-    static int INITIAL_HEALTH = 100;
+    #region Comments & Future updates
+    /*
+     * How cool would it be if we had a text in the player to upload info EVERY-shooter-game style?
+     * 
+     */
+    #endregion
 
-    static float SHOOTING_RATE = 0.5f;
+    #region Constants
+    private const int INITIAL_HEALTH = 100;
+    private const float SHOOTING_RATE = 0.5f;
+    private const int BULLET_DAMAGE = 10;
+    private const int MAX_PLAYERS = 4;
+    private static readonly Color DEAD_COLOR = Color.gray;
+    #endregion
 
-    static int BULLET_DAMAGE = 10;
-
-    public Camera playerCamera;
-
-    // HEALTH
+    #region Network Variables
+    /// <summary>Synchronized across network. Represents current player health (0-100)</summary>
     public NetworkVariable<int> currentHealth = new NetworkVariable<int>(INITIAL_HEALTH);
+
+    /// <summary>Synchronized across network. Determines player visual color</summary>
+    public NetworkVariable<Color> playerColor = new NetworkVariable<Color>();
+
+    /// <summary>Synchronized across network. Tracks if player is dead</summary>
+    public NetworkVariable<bool> isDead = new NetworkVariable<bool>(false);
+    #endregion
+
+    #region Player Components
+    [Header("Player Components")]
+    [SerializeField] private CharacterController controller;
+    private Material playerMaterial;
+    #endregion
+
+    #region Movement Settings
+    [Header("Movement Settings")]
+    [SerializeField] private float playerSpeed = 2.0f;
+    [SerializeField] private float playerRotationSpeed = 0.25f;
+    private readonly float gravityValue = -9.81f;
+    private Vector3 playerVelocity;
+    private bool groundedPlayer;
+    #endregion
+
+    #region Shooting System
+    [Header("Shooting System")]
+    [SerializeField] private GameObject bulletPrefab;
+    [SerializeField] private Transform bulletSpawnPoint;
+    [SerializeField] private int shootVelocity = 50;
+    private float rechargeTime = 0;
+    #endregion
+
+    #region UI Elements
+    [Header("UI Elements")]
+    public Camera playerCamera;
     public Text healthText;
     public GameObject healthBar;
     public Slider healthSlider;
+    public Slider reloadBar;
+    #endregion
 
-    // MOVEMENT
-    private CharacterController controller;
-    private Vector3 playerVelocity;
-    private bool groundedPlayer;
-    [SerializeField]
-    private float playerSpeed = 2.0f;
-    private float gravityValue = -9.81f;
-    [SerializeField]
-    private float playerRotationSpeed = 0.25f;
-
-    // SHOOTING
-    public GameObject bulletPrefab; // Prefab of the spawneable bullet
-    public Transform bulletSpawnPoint;
-    private float rechargeTime = 0;
-    [SerializeField]
-    private int shootVelocity = 50;
-
-    // New variables
-    public NetworkVariable<Color> playerColor = new NetworkVariable<Color>();
-    public NetworkVariable<bool> isDead = new NetworkVariable<bool>(false);
-    private Material playerMaterial;
-    private static bool[] spawnUsed = new bool[4]; // Máximo 4 jugadores
-    private static Transform[] spawnPoints;
-
-    // Inicializacion
-    void Start()
-    {
-        playerMaterial = GetComponent<Renderer>().material;
-        playerMaterial.color = playerColor.Value;
-        playerColor.OnValueChanged += (Color prev, Color curr) =>
-        {
-            playerMaterial.color = curr;
-        };
-        
-        // Indicamos el ID del cliente en el nombre de su avatar
-        this.gameObject.name = "Player" + OwnerClientId;
-        controller = this.gameObject.GetComponent<CharacterController>();
-        // Actualizamos la interfaz en el callback de salud
-        currentHealth.OnValueChanged += OnHealthChange;
-        // Cuando no es nuestro avatar, desactivamos la interfaz y la camara
-        if (!IsLocalPlayer)
-        {
-            playerCamera.gameObject.SetActive(false);
-            healthText.gameObject.SetActive(false);
-        }
-
-        //if (IsOwner)
-        //{
-        //    SetRandomColorServerRpc();
-        //    TeleportToSpawnPoint();
-        //}
-        if (IsLocalPlayer && healthSlider != null)// Solo el jugador local actualiza su slider al iniciar
-        {
-            healthSlider.gameObject.SetActive(false); // Lo ocultamos porque solo otros lo ven
-            healthText.text = "HP: " + currentHealth.Value;
-        }
-        // Para otros jugadores, activamos la barra
-        if (!IsLocalPlayer && healthSlider != null)
-        {
-            healthSlider.value = currentHealth.Value / (float)INITIAL_HEALTH;
-        }
-
-    }
-
-    // Esta función se ejecuta automáticamente cuando el objeto de red ha sido completamente inicializado
-    // Es el lugar adecuado para hacer lógica relacionada con la red, como mover el jugador a su spawn
+    #region Unity Callbacks
+    /// <summary>
+    /// Initializes player when spawned on network
+    /// </summary>
     public override void OnNetworkSpawn()
     {
+        base.OnNetworkSpawn();
+
+        InitializePlayerIdentity();
+        SetupNetworkCallbacks();
+
         if (IsServer)
         {
-            TeleportToSpawnPoint(); // Solo el servidor decide la posición inicial
+            InitializeServerPlayer();
         }
 
-        if (IsOwner)
-        {
-            SetRandomColorServerRpc(); // Cada jugador solicita un color aleatorio al servidor
-        }
-        // Por si ya está muerto al spawnear
-        if (isDead.Value)
-        {
-            playerMaterial.color = Color.black;
-        }
+        ConfigurePlayerUI();
     }
-    private void Update()
+
+    /// <summary>
+    /// Handles physics updates
+    /// </summary>
+    private void FixedUpdate()
     {
-        // El servidor tiene que realizar sus calculos para los jugadores
+        if (isDead.Value) return;
+
         if (IsServer)
         {
-            DamagePlayer();
-            // El servidor calcula el tiempo que queda para disparar
-            if (rechargeTime > 0)
-            {
-                rechargeTime -= Time.deltaTime;
-            }
+            UpdateShootingCooldown();
         }
-        // Si el jugador está muerto, no hace nada más
-        if (isDead.Value)
-            return;
-        // Si no es el avatar local, solo actualizar la barrada de vida
-        if (!IsLocalPlayer && !IsServer)
+
+        if (IsLocalPlayer)
         {
-            // Hacemos que la barra de vida mire hacia el jugador local
-            UpdateHealthBar();
-            return;
+            UpdateInput();
         }
-
-        // Si es el avatar del jugador local
-        UpdateInput();
+        else
+        {
+            UpdateRemotePlayerUI();
+        }
     }
+    #endregion
 
-    [ServerRpc]
-    private void SetRandomColorServerRpc()
+    #region Initialization
+    /// <summary>
+    /// Sets up player identity and visual representation
+    /// </summary>
+    private void InitializePlayerIdentity()
     {
-        playerColor.Value = new Color(Random.value, Random.value, Random.value);
+        playerMaterial = GetComponentInChildren<Renderer>().material;
+        playerMaterial.color = playerColor.Value;
+        gameObject.name = $"Player_{OwnerClientId}";
+        controller = GetComponent<CharacterController>();
     }
 
-    // Esta función mueve al jugador a un punto de aparición libre
-    // Se ejecuta solo en el servidor para asegurar consistencia en todos los clientes
+    /// <summary>
+    /// Server-only initialization
+    /// </summary>
+    private void InitializeServerPlayer()
+    {
+        TeleportToSpawnPoint();
+        AssignUniqueColor();
+    }
+
+    /// <summary>
+    /// Sets up all network variable change callbacks
+    /// </summary>
+    private void SetupNetworkCallbacks()
+    {
+        playerColor.OnValueChanged += OnColorChanged;
+        currentHealth.OnValueChanged += OnHealthChanged;
+        isDead.OnValueChanged += OnDeathStateChanged;
+    }
+
+    /// <summary>
+    /// Configures UI based on player type (local or remote)
+    /// </summary>
+    private void ConfigurePlayerUI()
+    {
+        if (IsLocalPlayer)
+        {
+            SetupLocalPlayerUI();
+        }
+        else
+        {
+            SetupRemotePlayerUI();
+        }
+    }
+    #endregion
+
+    #region Spawn System
+    /// <summary>
+    /// Teleports player to an available spawn point (server only)
+    /// </summary>
     private void TeleportToSpawnPoint()
     {
-        // Si el servidor aún no ha recopilado los puntos de spawn
-        if (IsServer && spawnPoints == null || spawnPoints.Length == 0)
-        {
-            GameObject[] spawns = GameObject.FindGameObjectsWithTag("Spawnpoint");
-            spawnPoints = new Transform[spawns.Length];
-            spawnUsed = new bool[spawns.Length];
+        GameObject[] spawns = GameObject.FindGameObjectsWithTag("Spawnpoint");
+        if (spawns.Length == 0) return;
 
-            for (int i = 0; i < spawns.Length; i++)
-            {
-                spawnPoints[i] = spawns[i].transform;
-            }
-        }
-        // Buscamos un punto libre y movemos al jugador allí
-        for (int i = 0; i < spawnPoints.Length; i++)
-        {
-          
-            if (!spawnUsed[i])
-            {
-               
-                transform.position = spawnPoints[i].position;
-                spawnUsed[i] = true;
-                break;
-            }
-        }
+        int spawnIndex = (int)OwnerClientId % spawns.Length;
+        transform.position = spawns[spawnIndex].transform.position;
+        transform.rotation = spawns[spawnIndex].transform.rotation;
     }
 
-    // Comprueba input que se tenga que mandar al servidor
+    /// <summary>
+    /// Assigns a unique color to each player (server only)
+    /// </summary>
+    private void AssignUniqueColor()
+    {
+        float hue = (float)OwnerClientId / MAX_PLAYERS;
+        playerColor.Value = Color.HSVToRGB(hue, 0.8f, 0.8f);
+    }
+    #endregion
+
+    #region Input Handling
+    /// <summary>
+    /// Handles player input (local player only)
+    /// </summary>
     private void UpdateInput()
     {
         float axisH = Input.GetAxis("Horizontal");
         float axisV = Input.GetAxis("Vertical");
         bool shootPressed = Input.GetMouseButtonDown(0);
+
         UpdatePlayerServerRpc(axisH, axisV, shootPressed);
     }
 
-    // Cuando la vida cambia, actualizamos la interfaz
-    private void OnHealthChange(int prevHealth, int newHealth)
-    {
-        // Si es el jugador local, actualizamos el texto de vida
-        if (IsLocalPlayer && healthText != null)
-        {
-            healthText.text = "HP: " + newHealth.ToString();
-        }
-
-        // Si es otro jugador, actualizamos el Slider de su barra de vida
-        if (!IsLocalPlayer && healthSlider != null)
-        {
-            healthSlider.value = newHealth / (float)INITIAL_HEALTH;
-        }
-    }
-
-    // Orienta la barra de vida al jugador principal
-    private void UpdateHealthBar()
-    {
-        if (healthBar != null)
-            healthBar.transform.LookAt(NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject().gameObject.transform);
-    }
-
-    // Mandamos el input del jugador al servidor
+    /// <summary>
+    /// Server RPC to update player movement and handle shooting
+    /// </summary>
     [ServerRpc]
-    void UpdatePlayerServerRpc(float axisH, float axisV, bool shootPressed)
+    private void UpdatePlayerServerRpc(float axisH, float axisV, bool shootPressed)
     {
-        if (isDead.Value) return; // El servidor ignora si está muerto
+        if (isDead.Value) return;
 
+        HandleMovement(axisH, axisV);
+
+        if (shootPressed)
+        {
+            AttemptShoot();
+        }
+    }
+    #endregion
+
+    #region Movement System
+    /// <summary>
+    /// Handles player movement physics
+    /// </summary>
+    private void HandleMovement(float axisH, float axisV)
+    {
         groundedPlayer = controller.isGrounded;
         if (groundedPlayer && playerVelocity.y < 0)
         {
             playerVelocity.y = 0f;
         }
 
-        Vector3 moveH = axisH * transform.right;
-        Vector3 moveV = axisV * transform.forward;
-        Vector3 moveDirection = moveH + moveV;
-        moveDirection.Normalize();
-        controller.Move(moveV * playerSpeed * Time.deltaTime);
+        Vector3 move = new Vector3(0, 0, axisV);
+        move = transform.TransformDirection(move);
+        controller.Move(move * (playerSpeed * Time.deltaTime));
 
-        transform.rotation = Quaternion.Euler(new Vector3(0f, axisH * playerRotationSpeed, 0f)) * transform.rotation;
+        if (axisH != 0)
+        {
+            transform.Rotate(0, axisH * playerRotationSpeed, 0);
+        }
 
         playerVelocity.y += gravityValue * Time.deltaTime;
         controller.Move(playerVelocity * Time.deltaTime);
+    }
+    #endregion
 
-        // La actualizacion a los clientes se realiza con NetworkTransform
-
-        if (shootPressed)
-            Shoot();
+    #region Shooting System
+    /// <summary>
+    /// Updates shooting cooldown timer (server only)
+    /// </summary>
+    private void UpdateShootingCooldown()
+    {
+        if (rechargeTime > 0)
+        {
+            rechargeTime -= Time.deltaTime;
+            reloadBar.value = Mathf.Clamp01(1-(rechargeTime/SHOOTING_RATE));
+        }
+        else
+        { reloadBar.value = 1f; }
     }
 
-    // Solo el servidor puede dispara para generar la bala
-    private void Shoot()
+    /// <summary>
+    /// Attempts to shoot if cooldown allows (server only)
+    /// </summary>
+    private void AttemptShoot()
     {
-        if (!IsServer)
-            return;
-
         if (rechargeTime <= 0)
         {
+            Shoot();
             rechargeTime = SHOOTING_RATE;
-            // Spawn bullet and add movement
         }
     }
 
-    // Solo el servidor debe poder quitar vida
+    /// <summary>
+    /// Creates and launches a bullet (server only)
+    /// </summary>
+    private void Shoot()
+    {
+        GameObject bullet = Instantiate(bulletPrefab, bulletSpawnPoint.position, bulletSpawnPoint.rotation);
+        NetworkObject bulletNetworkObject = bullet.GetComponent<NetworkObject>();
+        bulletNetworkObject.SpawnWithOwnership(OwnerClientId);
+
+        Bullet bulletScript = bullet.GetComponent<Bullet>();
+        bulletScript.bulletColor.Value = playerColor.Value;
+
+        Rigidbody rb = bullet.GetComponent<Rigidbody>();
+        rb.linearVelocity = bulletSpawnPoint.forward * shootVelocity;
+    }
+    #endregion
+
+    #region Health System
+    /// <summary>
+    /// Applies damage to player (server only)
+    /// </summary>
     public void DamagePlayer()
     {
-        if (IsServer)
+        if (!IsServer || isDead.Value) return;
+
+        currentHealth.Value = Mathf.Max(0, currentHealth.Value - BULLET_DAMAGE);
+
+        if (currentHealth.Value <= 0)
         {
-            currentHealth.Value -= BULLET_DAMAGE; //Quitamos el valor del daño establecido
-
-            if (currentHealth.Value <= 0 && !isDead.Value)
-            {
-                isDead.Value = true;
-                playerColor.Value = Color.black; // Se sincroniza a todos los clientes
-                Debug.Log("Player " + OwnerClientId + " is dead");
-            }
+            HandlePlayerDeath();
         }
-
     }
+
+    /// <summary>
+    /// Handles player death (server only)
+    /// </summary>
+    private void HandlePlayerDeath()
+    {
+        isDead.Value = true;
+        playerColor.Value = DEAD_COLOR;
+    }
+    #endregion
+
+    #region UI System
+    /// <summary>
+    /// Sets up UI for local player
+    /// </summary>
+    private void SetupLocalPlayerUI()
+    {
+        playerCamera.gameObject.SetActive(true);
+        healthText.gameObject.SetActive(true);
+        healthText.text = $"HP: {currentHealth.Value}";
+
+        if (healthSlider != null)
+        {
+            healthSlider.gameObject.SetActive(false);
+        }
+    }
+
+    /// <summary>
+    /// Sets up UI for remote players
+    /// </summary>
+    private void SetupRemotePlayerUI()
+    {
+        playerCamera.gameObject.SetActive(false);
+        healthText.gameObject.SetActive(false);
+
+        if (healthSlider != null)
+        {
+            healthSlider.value = currentHealth.Value / (float)INITIAL_HEALTH;
+        }
+    }
+
+    /// <summary>
+    /// Updates remote player UI elements
+    /// </summary>
+    private void UpdateRemotePlayerUI()
+    {
+        if (healthBar != null)
+        {
+            healthBar.transform.LookAt(Camera.main.transform);
+        }
+    }
+    #endregion
+
+    #region Network Callbacks
+    /// <summary>
+    /// Called when player color changes
+    /// </summary>
+    private void OnColorChanged(Color previous, Color current)
+    {
+        playerMaterial.color = current;
+    }
+
+    /// <summary>
+    /// Called when health changes
+    /// </summary>
+    private void OnHealthChanged(int previous, int current)
+    {
+        if (IsLocalPlayer)
+        {
+            healthText.text = $"HP: {current}";
+        }
+        else if (healthSlider != null)
+        {
+            healthSlider.value = current / (float)INITIAL_HEALTH;
+        }
+    }
+
+    /// <summary>
+    /// Called when death state changes
+    /// </summary>
+    private void OnDeathStateChanged(bool previous, bool current)
+    {
+        if (current && IsLocalPlayer)
+        {
+            healthText.text = "DEAD";
+        }
+    }
+    #endregion
 }
