@@ -1,13 +1,18 @@
 using UnityEngine;
 using Unity.Netcode;
 
+
+/// <summary>
+/// <para>Basic UI for starting/joining games.</para>
+/// Shows connection status and lets players host/join games.
+/// </summary>
 public class NetworkHUD : MonoBehaviour
 {
     void OnGUI()
     {
         // Creamos una interfaz en pantalla
         GUILayout.BeginArea(new Rect(10, 10, 300, 300));
-        // Si no somo un cliente o un servidor
+        // Si no somos un cliente o un servidor
         if (!NetworkManager.Singleton.IsClient && !NetworkManager.Singleton.IsServer)
         {
             // Mostramos los botones para iniciar una conexion
@@ -25,6 +30,9 @@ public class NetworkHUD : MonoBehaviour
     }
 
     // Cada boton inicia un tipo de servicio en el ordenador
+    /// <summary>
+    /// Draw buttons for hosting/joining games
+    /// </summary>
     static void StartButtons()
     {
         if (GUILayout.Button("Host")) NetworkManager.Singleton.StartHost();
@@ -33,6 +41,9 @@ public class NetworkHUD : MonoBehaviour
     }
 
     // Muestra el estado del servicio multijugador
+    /// <summary>
+    /// Show current connection status
+    /// </summary>
     static void StatusLabels()
     {
         var mode = NetworkManager.Singleton.IsHost ?

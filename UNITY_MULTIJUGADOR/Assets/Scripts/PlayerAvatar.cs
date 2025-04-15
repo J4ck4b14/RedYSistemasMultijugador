@@ -2,10 +2,11 @@ using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.UI;
 using Unity.Netcode.Components;
+using System.Collections.Generic;
 
 /// <summary>
-/// <para>Networked player avatar handling movement, shooting, health, and visual representation.</para>
-/// This class manages all player-related gameplay systems and synchronizes them across the network.
+/// <para>Networked player controller that handles movement, shooting, health, and visual representation.</para>
+/// This bad boy does everything - from shooting bullets to taking damage to looking pretty...  He tries, OK?
 /// </summary>
 [RequireComponent(typeof(NetworkTransform))]
 public class PlayerAvatar : NetworkBehaviour
@@ -17,6 +18,7 @@ public class PlayerAvatar : NetworkBehaviour
      */
     #endregion
 
+    #region Variables
     #region Constants
     private const int INITIAL_HEALTH = 100;
     private const float SHOOTING_RATE = 0.5f;
@@ -26,13 +28,18 @@ public class PlayerAvatar : NetworkBehaviour
     #endregion
 
     #region Network Variables
+    [Header("Network Variables")]
+
     /// <summary>Synchronized across network. Represents current player health (0-100)</summary>
+    [Tooltip("Current player health - syncs across network")]
     public NetworkVariable<int> currentHealth = new NetworkVariable<int>(INITIAL_HEALTH);
 
     /// <summary>Synchronized across network. Determines player visual color</summary>
+    [Tooltip("Player color - changes based on player ID")]
     public NetworkVariable<Color> playerColor = new NetworkVariable<Color>();
 
     /// <summary>Synchronized across network. Tracks if player is dead</summary>
+    [Tooltip("Are we dead? Syncs so everyone knows we're toast")]
     public NetworkVariable<bool> isDead = new NetworkVariable<bool>(false);
     #endregion
 
@@ -56,7 +63,8 @@ public class PlayerAvatar : NetworkBehaviour
     [SerializeField] private GameObject bulletPrefab;
     [SerializeField] private Transform bulletSpawnPoint;
     [SerializeField] private int shootVelocity = 50;
-    private float rechargeTime = 0;
+    private float serverCooldownEndTime = 0f;
+    private float localCooldownEndTime = 0f;
     #endregion
 
     #region UI Elements
@@ -66,11 +74,20 @@ public class PlayerAvatar : NetworkBehaviour
     public GameObject healthBar;
     public Slider healthSlider;
     public Slider reloadBar;
+    public Image reloadFill;
+    public Text killFeedText;
+    private const int MAX_KILL_MESSAGES = 5;
+    private readonly Queue<string> killMessages = new Queue<string>();
     #endregion
+    #endregion
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 LIFECYCLE                                  */
+    /* -------------------------------------------------------------------------- */
 
     #region Unity Callbacks
     /// <summary>
-    /// Initializes player when spawned on network
+    /// Called when player spawns - initializes all the important shiiii
     /// </summary>
     public override void OnNetworkSpawn()
     {
@@ -79,34 +96,31 @@ public class PlayerAvatar : NetworkBehaviour
         InitializePlayerIdentity();
         SetupNetworkCallbacks();
 
+        // Server-only setup
         if (IsServer)
         {
-            InitializeServerPlayer();
+            TeleportToSpawnPoint();
+            AssignUniqueColor();
+        }
+        // Server-only setup
+        if (IsServer)
+        {
+            TeleportToSpawnPoint();
+            AssignUniqueColor();
         }
 
         ConfigurePlayerUI();
     }
 
     /// <summary>
-    /// Handles physics updates
+    /// Runs every frame - handles input and UI updates
     /// </summary>
-    private void FixedUpdate()
+    private void Update()
     {
-        if (isDead.Value) return;
+        if (isDead.Value || !IsLocalPlayer) return;
 
-        if (IsServer)
-        {
-            UpdateShootingCooldown();
-        }
-
-        if (IsLocalPlayer)
-        {
-            UpdateInput();
-        }
-        else
-        {
-            UpdateRemotePlayerUI();
-        }
+        UpdateReloadUI();
+        HandleInput();
     }
     #endregion
 
@@ -181,37 +195,51 @@ public class PlayerAvatar : NetworkBehaviour
     }
     #endregion
 
-    #region Input Handling
+    /* -------------------------------------------------------------------------- */
+    /*                               PLAYER SYSTEMS                               */
+    /* -------------------------------------------------------------------------- */
+    #region Player System
+
+        #region Input Handling
     /// <summary>
     /// Handles player input (local player only)
     /// </summary>
-    private void UpdateInput()
+    private void HandleInput()
     {
         float axisH = Input.GetAxis("Horizontal");
         float axisV = Input.GetAxis("Vertical");
-        bool shootPressed = Input.GetMouseButtonDown(0);
+        bool shootPressed = Input.GetMouseButton(0);
+
+        // Client-side prediction
+        if (shootPressed && Time.time >= localCooldownEndTime)
+        {
+            localCooldownEndTime = Time.time + SHOOTING_RATE;
+        }
 
         UpdatePlayerServerRpc(axisH, axisV, shootPressed);
     }
 
-    /// <summary>
-    /// Server RPC to update player movement and handle shooting
-    /// </summary>
     [ServerRpc]
     private void UpdatePlayerServerRpc(float axisH, float axisV, bool shootPressed)
     {
         if (isDead.Value) return;
 
-        HandleMovement(axisH, axisV);
+        HandleMovement(axisH, axisV);  // Movement handling
 
-        if (shootPressed)
+        if (shootPressed && Time.time >= serverCooldownEndTime)  // Shooting with cooldown
         {
-            AttemptShoot();
+            Shoot();
+            serverCooldownEndTime = Time.time + SHOOTING_RATE;
+
+            if (IsOwner)  // Sync with client prediction
+            {
+                localCooldownEndTime = serverCooldownEndTime;
+            }
         }
     }
     #endregion
 
-    #region Movement System
+        #region Movement System
     /// <summary>
     /// Handles player movement physics
     /// </summary>
@@ -237,82 +265,131 @@ public class PlayerAvatar : NetworkBehaviour
     }
     #endregion
 
-    #region Shooting System
+        #region Shooting System
     /// <summary>
     /// Updates shooting cooldown timer (server only)
-    /// </summary>
-    private void UpdateShootingCooldown()
-    {
-        if (rechargeTime > 0)
-        {
-            rechargeTime -= Time.deltaTime;
-            reloadBar.value = Mathf.Clamp01(1-(rechargeTime/SHOOTING_RATE));
-        }
-        else
-        { reloadBar.value = 1f; }
-    }
-
-    /// <summary>
-    /// Attempts to shoot if cooldown allows (server only)
-    /// </summary>
-    private void AttemptShoot()
-    {
-        if (rechargeTime <= 0)
-        {
-            Shoot();
-            rechargeTime = SHOOTING_RATE;
-        }
-    }
-
-    /// <summary>
-    /// Creates and launches a bullet (server only)
     /// </summary>
     private void Shoot()
     {
         GameObject bullet = Instantiate(bulletPrefab, bulletSpawnPoint.position, bulletSpawnPoint.rotation);
-        NetworkObject bulletNetworkObject = bullet.GetComponent<NetworkObject>();
-        bulletNetworkObject.SpawnWithOwnership(OwnerClientId);
+        bullet.GetComponent<NetworkObject>().SpawnWithOwnership(OwnerClientId);
 
+        // Set bullet properties
         Bullet bulletScript = bullet.GetComponent<Bullet>();
         bulletScript.bulletColor.Value = playerColor.Value;
 
-        Rigidbody rb = bullet.GetComponent<Rigidbody>();
-        rb.linearVelocity = bulletSpawnPoint.forward * shootVelocity;
+        // Apply velocity
+        bullet.GetComponent<Rigidbody>().linearVelocity = bulletSpawnPoint.forward * shootVelocity;
     }
     #endregion
 
-    #region Health System
+        #region Health System
     /// <summary>
     /// Applies damage to player (server only)
     /// </summary>
-    public void DamagePlayer()
+    public void DamagePlayer(ulong damagerId) // MODIFIED TO ACCEPT DAMAGER ID
     {
         if (!IsServer || isDead.Value) return;
 
-        currentHealth.Value = Mathf.Max(0, currentHealth.Value - BULLET_DAMAGE);
+        currentHealth.Value -= BULLET_DAMAGE;
 
         if (currentHealth.Value <= 0)
         {
-            HandlePlayerDeath();
+            HandlePlayerDeath(damagerId); // PASS KILLER ID
         }
     }
 
     /// <summary>
     /// Handles player death (server only)
     /// </summary>
-    private void HandlePlayerDeath()
+    private void HandlePlayerDeath(ulong killerId)
     {
         isDead.Value = true;
         playerColor.Value = DEAD_COLOR;
+
+        // Get killer's color
+        Color killerColor = NetworkManager.Singleton.ConnectedClients[killerId]
+            .PlayerObject.GetComponent<PlayerAvatar>().playerColor.Value;
+
+        // Format kill message
+        string message = FormatKillMessage(killerId, killerColor);
+
+        // Send to server to broadcast
+        ReportKillServerRpc(message);
+    }
+
+    [ServerRpc]
+    private void ReportKillServerRpc(string message)
+    {
+        BroadcastKillClientRpc(message);
+    }
+
+    [ClientRpc]
+    private void BroadcastKillClientRpc(string message)
+    {
+        AddKillMessage(message);
+    }
+
+    private string FormatKillMessage(ulong killerId, Color killerColor)
+    {
+        string killerHex = ColorUtility.ToHtmlStringRGB(killerColor);
+        string victimHex = ColorUtility.ToHtmlStringRGB(playerColor.Value);
+        return $"<color=#{killerHex}>Player {killerId}</color> killed <color=#{victimHex}>Player {OwnerClientId}</color>";
+    }
+
+    private void AddKillMessage(string message)
+    {
+        if (!IsLocalPlayer) return; // Only update local player's kill feed
+
+        killMessages.Enqueue(message);
+        if (killMessages.Count > MAX_KILL_MESSAGES)
+        {
+            killMessages.Dequeue();
+        }
+
+        UpdateKillFeedDisplay();
+    }
+
+    private void UpdateKillFeedDisplay()
+    {
+        killFeedText.text = string.Join("\n", killMessages);
     }
     #endregion
+    #endregion
+
+    /* -------------------------------------------------------------------------- */
+    /*                                    UI                                      */
+    /* -------------------------------------------------------------------------- */
 
     #region UI System
     /// <summary>
-    /// Sets up UI for local player
+    /// Set up UI for local player (first person view)
     /// </summary>
     private void SetupLocalPlayerUI()
     {
+        // Enable first-person UI elements
+        if (playerCamera != null)
+        {
+            playerCamera.gameObject.SetActive(true);
+
+            // Local UI (screen-space canvas)
+            if (healthText != null)
+            {
+                healthText.gameObject.SetActive(true);
+                healthText.text = $"HP: {currentHealth.Value}";
+            }
+
+            if (reloadBar != null)
+            {
+                reloadBar.gameObject.SetActive(true);
+            }
+        }
+
+        // Disable world-space UI meant for others
+        if (healthBar != null)
+        {
+            healthBar.SetActive(false);
+        }
         playerCamera.gameObject.SetActive(true);
         healthText.gameObject.SetActive(true);
         healthText.text = $"HP: {currentHealth.Value}";
@@ -321,33 +398,74 @@ public class PlayerAvatar : NetworkBehaviour
         {
             healthSlider.gameObject.SetActive(false);
         }
+
+        killFeedText.gameObject.SetActive(true);
+        killFeedText.text = "";
     }
 
     /// <summary>
-    /// Sets up UI for remote players
+    /// Set up UI for remote players (third person view)
     /// </summary>
     private void SetupRemotePlayerUI()
     {
-        playerCamera.gameObject.SetActive(false);
-        healthText.gameObject.SetActive(false);
-
-        if (healthSlider != null)
+        // Disable first-person UI
+        if (playerCamera != null)
         {
+            playerCamera.gameObject.SetActive(false);
+        }
+
+        if (healthText != null)
+        {
+            healthText.gameObject.SetActive(false);
+        }
+
+        if (reloadBar != null)
+        {
+            reloadBar.gameObject.SetActive(false);
+        }
+
+        // Enable world-space health bar
+        if (healthBar != null)
+        {
+            healthBar.SetActive(true);
             healthSlider.value = currentHealth.Value / (float)INITIAL_HEALTH;
         }
     }
 
     /// <summary>
-    /// Updates remote player UI elements
+    /// Makes health bars face the local player's camera
     /// </summary>
     private void UpdateRemotePlayerUI()
     {
-        if (healthBar != null)
+        if (healthBar != null && Camera.main != null)
         {
             healthBar.transform.LookAt(Camera.main.transform);
         }
+
+        killFeedText.gameObject.SetActive(false);
     }
+
+    /// <summary>
+    /// Make the reload bar go brrrr
+    /// </summary>
+    private void UpdateReloadUI()
+    {
+        if (reloadBar == null) return;
+
+        float progress = Mathf.Clamp01(1 - ((localCooldownEndTime - Time.time) / SHOOTING_RATE));
+        reloadBar.value = progress;
+
+        if (reloadFill != null)
+        {
+            reloadFill.color = Color.Lerp(Color.red, Color.green, progress);
+        }
+    }
+
     #endregion
+
+    /* -------------------------------------------------------------------------- */
+    /*                               NETWORK CALLBACKS                            */
+    /* -------------------------------------------------------------------------- */
 
     #region Network Callbacks
     /// <summary>
