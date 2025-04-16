@@ -3,6 +3,7 @@ using Unity.Netcode;
 using UnityEngine.UI;
 using Unity.Netcode.Components;
 using System.Collections.Generic;
+using System.Collections;
 
 /// <summary>
 /// <para>Networked player controller that handles movement, shooting, health, and visual representation.</para>
@@ -58,6 +59,15 @@ public class PlayerAvatar : NetworkBehaviour
     private bool groundedPlayer;
     #endregion
 
+    #region Power Up System
+    [Header("Power Up Variables")]
+    private PowerUpType activeBuff;
+    private bool isBuffed = false;
+    private float buffEndTime = 0f;
+    private float bulletDamageMultiplier = 1f;
+    private Coroutine powerUpUICoroutine;
+    #endregion
+
     #region Shooting System
     [Header("Shooting System")]
     [SerializeField] private GameObject bulletPrefab;
@@ -71,13 +81,17 @@ public class PlayerAvatar : NetworkBehaviour
     [Header("UI Elements")]
     public Camera playerCamera;
     public Text healthText;
+    public Text powerUpText;
     public GameObject healthBar;
     public Slider healthSlider;
     public Slider reloadBar;
+    public Slider powerUpBar;
     public Image reloadFill;
     public Text killFeedText;
     private const int MAX_KILL_MESSAGES = 5;
     private readonly Queue<string> killMessages = new Queue<string>();
+    // Referencia al slider visual sobre el jugador (debe conectarse en el inspector)
+    public Slider buffSlider;
     #endregion
     #endregion
 
@@ -117,10 +131,15 @@ public class PlayerAvatar : NetworkBehaviour
     /// </summary>
     private void Update()
     {
-        if (isDead.Value || !IsLocalPlayer) return;
+        if (isDead.Value || !IsLocalPlayer) 
+        {
+            EndBuff(); // End buff if player is dead or not local
+            return; 
+        }
 
         UpdateReloadUI();
         HandleInput();
+        UpdateBuffState();
     }
     #endregion
 
@@ -290,8 +309,11 @@ public class PlayerAvatar : NetworkBehaviour
     public void DamagePlayer(ulong damagerId) // MODIFIED TO ACCEPT DAMAGER ID
     {
         if (!IsServer || isDead.Value) return;
+        PlayerAvatar attacker = NetworkManager.Singleton.ConnectedClients[damagerId]
+        .PlayerObject.GetComponent<PlayerAvatar>();
 
-        currentHealth.Value -= BULLET_DAMAGE;
+        int finalDamage = Mathf.RoundToInt(BULLET_DAMAGE * attacker.bulletDamageMultiplier); // Apply damage multiplier
+        currentHealth.Value -= finalDamage;
 
         if (currentHealth.Value <= 0)
         {
@@ -500,6 +522,125 @@ public class PlayerAvatar : NetworkBehaviour
         {
             healthText.text = "DEAD";
         }
+    }
+    #endregion
+
+    #region Power Up System
+    // Llamado desde PowerUp.cs cuando el jugador toca un power-up
+    // Es llamado desde el propio cliente que recogió el Power-Up
+    // Esto garantiza que tenga ownership y el mensaje se procese correctamente
+    [ServerRpc]
+    public void SendPowerUpToServerRpc(PowerUpType type)
+    {
+        switch (type)
+        {
+            case PowerUpType.HP:
+                currentHealth.Value = INITIAL_HEALTH;
+                break;
+
+            case PowerUpType.PowerBullet:
+                StartBuff(type, 30f);
+                break;
+
+            case PowerUpType.SpeedCola:
+                StartBuff(type, 30f);
+                break;
+        }
+    }
+    // Inicia una mejora temporal (servidor)
+    private void StartBuff(PowerUpType type, float duration)
+    {
+        activeBuff = type;
+        isBuffed = true;
+        buffEndTime = Time.time + duration;
+        if (buffSlider != null)
+        {
+            buffSlider.gameObject.SetActive(true);
+            buffSlider.maxValue = duration;
+            buffSlider.value = duration;
+        }
+        if (IsLocalPlayer)
+            ShowPowerUpUI(type, duration);
+        switch (type)
+        {
+            case PowerUpType.PowerBullet:
+                bulletDamageMultiplier = 1.5f;
+                break;
+            case PowerUpType.SpeedCola:
+                playerSpeed *= 2f;
+                break;
+        }
+
+    }
+
+    // Verifica si el buff terminó (llamar desde Update)
+    private void UpdateBuffState()
+    {
+        if (!isBuffed) return;
+
+        float timeLeft = buffEndTime - Time.time;
+
+        if (buffSlider != null)
+        {
+            buffSlider.value = timeLeft;
+            powerUpBar.value = timeLeft;
+        }
+
+        if (timeLeft <= 0f)
+        {
+            EndBuff();
+        }
+    }
+
+    // Termina la mejora activa
+    private void EndBuff()
+    {
+        switch (activeBuff)
+        {
+            case PowerUpType.PowerBullet:
+                // Volver al daño normal si era modificado
+                bulletDamageMultiplier = 1f;
+                break;
+            case PowerUpType.SpeedCola:
+                playerSpeed /= 2f;
+                break;
+        }
+
+        if (buffSlider != null)
+        {
+            buffSlider.gameObject.SetActive(false);
+        }
+
+        isBuffed = false;
+    }
+    // Llama esto cuando se activa un buff
+    private void ShowPowerUpUI(PowerUpType type, float duration)
+    {
+        if (!IsLocalPlayer || powerUpText == null) return;
+
+        string message = type switch
+        {
+            PowerUpType.PowerBullet => $"¡Balas Potenciadas! ({duration}s)",
+            PowerUpType.SpeedCola => $"¡Velocidad Aumentada! ({duration}s)",
+            PowerUpType.HP => "¡Vida Restaurada!",
+            _ => ""
+        };
+
+        if (powerUpUICoroutine != null)
+            StopCoroutine(powerUpUICoroutine);
+
+        powerUpUICoroutine = StartCoroutine(DisplayPowerUpMessage(message, duration));
+    }
+
+    // Corrutina que muestra el mensaje durante la duración del buff
+    private IEnumerator DisplayPowerUpMessage(string message, float duration)
+    {
+        powerUpText.text = message;
+        powerUpText.gameObject.SetActive(true);
+
+        yield return new WaitForSeconds(duration);
+
+        powerUpText.gameObject.SetActive(false);
     }
     #endregion
 }
