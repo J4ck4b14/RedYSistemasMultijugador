@@ -31,6 +31,10 @@ public class PlayerAvatar : NetworkBehaviour
     #region Network Variables
     [Header("Network Variables")]
 
+    /// <summary>Synchronized across network. Represents player buffs</summary>
+    public NetworkVariable<bool> hasSpeedBuff = new NetworkVariable<bool>(false);
+    public NetworkVariable<bool> hasDamageBuff = new NetworkVariable<bool>(false);
+    public NetworkVariable<float> buffEndTime = new NetworkVariable<float>(0f);
     /// <summary>Synchronized across network. Represents current player health (0-100)</summary>
     [Tooltip("Current player health - syncs across network")]
     public NetworkVariable<int> currentHealth = new NetworkVariable<int>(INITIAL_HEALTH);
@@ -61,10 +65,7 @@ public class PlayerAvatar : NetworkBehaviour
 
     #region Power Up System
     [Header("Power Up Variables")]
-    private PowerUpType activeBuff;
-    private bool isBuffed = false;
-    private float buffEndTime = 0f;
-    private float bulletDamageMultiplier = 1f;
+    public float bulletDamageMultiplier = 1.0f; // sincronizado con hasDamageBuff
     private Coroutine powerUpUICoroutine;
     #endregion
 
@@ -133,7 +134,6 @@ public class PlayerAvatar : NetworkBehaviour
     {
         if (isDead.Value || !IsLocalPlayer) 
         {
-            EndBuff(); // End buff if player is dead or not local
             return; 
         }
 
@@ -532,6 +532,7 @@ public class PlayerAvatar : NetworkBehaviour
     [ServerRpc]
     public void SendPowerUpToServerRpc(PowerUpType type)
     {
+        Debug.Log($"[SERVER] PowerUp recibido: {type} de {OwnerClientId}");
         switch (type)
         {
             case PowerUpType.HP:
@@ -539,85 +540,61 @@ public class PlayerAvatar : NetworkBehaviour
                 break;
 
             case PowerUpType.PowerBullet:
-                StartBuff(type, 30f);
-                break;
-
-            case PowerUpType.SpeedCola:
-                StartBuff(type, 30f);
-                break;
-        }
-    }
-    // Inicia una mejora temporal (servidor)
-    private void StartBuff(PowerUpType type, float duration)
-    {
-        activeBuff = type;
-        isBuffed = true;
-        buffEndTime = Time.time + duration;
-        if (buffSlider != null)
-        {
-            buffSlider.gameObject.SetActive(true);
-            buffSlider.maxValue = duration;
-            buffSlider.value = duration;
-        }
-        if (IsLocalPlayer)
-            ShowPowerUpUI(type, duration);
-        switch (type)
-        {
-            case PowerUpType.PowerBullet:
+                hasDamageBuff.Value = true;
                 bulletDamageMultiplier = 1.5f;
+                buffEndTime.Value = Time.time + 30f;
                 break;
+
             case PowerUpType.SpeedCola:
-                playerSpeed *= 2f;
+                hasSpeedBuff.Value = true;
+                playerSpeed = 40.0f; // Cambia si tu velocidad base es diferente
+                buffEndTime.Value = Time.time + 30f;
                 break;
         }
 
+        if (IsLocalPlayer)
+        {
+            ShowPowerUpUI(type, 30f);
+            if (buffSlider != null)
+            {
+                buffSlider.gameObject.SetActive(true);
+                buffSlider.maxValue = 30f;
+                buffSlider.value = 30f;
+            }
+        }
     }
 
     // Verifica si el buff terminó (llamar desde Update)
     private void UpdateBuffState()
     {
-        if (!isBuffed) return;
+        float timeLeft = buffEndTime.Value = Time.time + 30f;
 
-        float timeLeft = buffEndTime - Time.time;
-
-        if (buffSlider != null)
+        if (hasSpeedBuff.Value || hasDamageBuff.Value)
         {
-            buffSlider.value = timeLeft;
-            powerUpBar.value = timeLeft;
-        }
+            if (buffSlider != null)
+            {
+                buffSlider.value = timeLeft;
+                powerUpBar.value = timeLeft;
+            }
 
-        if (timeLeft <= 0f)
-        {
-            EndBuff();
+            if (timeLeft <= 0f)
+            {
+                EndBuffServerRpc(); // Solo el dueño pide al server que se termine el buff
+            }
         }
     }
-
-    // Termina la mejora activa
-    private void EndBuff()
+    [ServerRpc]
+    private void EndBuffServerRpc()
     {
-        switch (activeBuff)
-        {
-            case PowerUpType.PowerBullet:
-                // Volver al daño normal si era modificado
-                bulletDamageMultiplier = 1f;
-                break;
-            case PowerUpType.SpeedCola:
-                playerSpeed /= 2f;
-                break;
-        }
-
-        if (buffSlider != null)
-        {
-            buffSlider.gameObject.SetActive(false);
-        }
-
-        isBuffed = false;
+        hasSpeedBuff.Value = false;
+        hasDamageBuff.Value = false;
+        playerSpeed = 20.0f; // vuelve a la velocidad normal
+        bulletDamageMultiplier = 1.0f;
     }
     // Llama esto cuando se activa un buff
     private void ShowPowerUpUI(PowerUpType type, float duration)
     {
         if (!IsLocalPlayer || powerUpText == null) return;
-
         string message = type switch
         {
             PowerUpType.PowerBullet => $"¡Balas Potenciadas! ({duration}s)",
@@ -633,13 +610,11 @@ public class PlayerAvatar : NetworkBehaviour
     }
 
     // Corrutina que muestra el mensaje durante la duración del buff
-    private IEnumerator DisplayPowerUpMessage(string message, float duration)
+   private IEnumerator DisplayPowerUpMessage(string message, float duration)
     {
         powerUpText.text = message;
         powerUpText.gameObject.SetActive(true);
-
         yield return new WaitForSeconds(duration);
-
         powerUpText.gameObject.SetActive(false);
     }
     #endregion

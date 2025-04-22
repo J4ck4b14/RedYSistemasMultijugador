@@ -32,6 +32,10 @@ public class PowerUp : NetworkBehaviour
     [ClientRpc]
     private void NotifyPlayerClientRpc(ulong playerId, PowerUpType type)
     {
+        Debug.Log($"[CLIENT] Recibido PowerUp {type} para PlayerId: {playerId}");
+        var obj = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject();
+        Debug.Log($"[CLIENT] Local client {NetworkManager.Singleton.LocalClientId} usando objeto {obj?.name}");
+
         // Asegurarse de que este mensaje solo lo procese el jugador correcto
         if (NetworkManager.Singleton.LocalClientId != playerId) return;
         // El cliente dueño llama a su propio ServerRpc
