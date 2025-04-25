@@ -111,7 +111,19 @@ public class ElevatorDoor : NetworkBehaviour
         if (doorRoutine != null)
             StopCoroutine(doorRoutine);
 
+        cabin.SetActiveDoor(this);
+
         doorRoutine = StartCoroutine(OpenAndCloseRoutine());
+    }
+
+    public void ForceClose()
+    {
+        if(doorRoutine != null) StopCoroutine(doorRoutine);
+
+        isOpen = false;
+        isMoving = true;
+
+        doorRoutine = StartCoroutine(CloseOnlyRoutine());
     }
 
     /// <summary>
@@ -156,5 +168,12 @@ public class ElevatorDoor : NetworkBehaviour
         doorVisual.localPosition = target; // Snap to end position
     }
 
+    private IEnumerator CloseOnlyRoutine()
+    {
+        yield return SlideDoor(closedPosition);
+        isMoving = false;
+
+        cabin.NotifyDoorClosed(this);
+    }
 #endregion
 }

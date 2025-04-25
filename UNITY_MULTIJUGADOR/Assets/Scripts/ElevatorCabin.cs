@@ -46,6 +46,8 @@ public class ElevatorCabin : NetworkBehaviour
     /// </summary>
     private Transform targetFloor;
 
+    private int playersInsideTheCabin;
+
     #endregion
 
     /* -------------------------------------------------------------------------- */
@@ -66,19 +68,56 @@ public class ElevatorCabin : NetworkBehaviour
             return Vector3.Distance(transform.position, topFloor.position) < threshold;
     }
 
+    public void SetActiveDoor(ElevatorDoor door)
+    {
+        activeDoor = door;
+        Debug.Log($"[CABIN] Active door is {(activeDoor)}");
+    }
+
     /// <summary>
     /// Called by a door to summon the cabin to its floor
     /// </summary>
     public void RequestCabinToThisFloor(ElevatorDoor door)
     {
         if (isMoving) return;
-        if (IsAtThisFloor(door)) return;
+        bool sameFloor = IsAtThisFloor(door);
+
+        ElevatorDoor otherDoor = (door == bottomDoor) ? topDoor : bottomDoor;
+        Transform otherFloor = (door == bottomDoor) ? topFloor : bottomFloor;
+
+        if (sameFloor)
+        {
+            if(playersInsideTheCabin > 0)
+            {
+                targetDoor = otherDoor;
+                targetFloor = otherFloor;
+
+                activeDoor = door;
+                door.ForceClose();
+            }
+            else
+            {
+                Debug.Log("[CABIN] Already here - no one inside. Ignoring.");
+                return;
+            }
+        }
+        else
+        {
+            targetDoor = door;
+            targetFloor = (door = bottomDoor) ? bottomFloor : topFloor;
+
+            activeDoor = currentDoor;
+            currentDoor.ForceClose();
+        }
+
 
         targetDoor = door;
         targetFloor = (door == bottomDoor) ? bottomFloor : topFloor;
 
-        // NEW: Mark current floor as the active door
-        activeDoor = (door == bottomDoor) ? topDoor : bottomDoor;
+        ElevatorDoor currentDoor = IsAtThisFloor(bottomDoor) ? bottomDoor : topDoor;
+        activeDoor = currentDoor;
+        Debug.Log($"[CABIN] Closing {currentDoor.name} before moving");
+        currentDoor.ForceClose();
     }
 
     /// <summary>
@@ -101,6 +140,16 @@ public class ElevatorCabin : NetworkBehaviour
             Debug.Log("[CABIN] Starting cabin movement.");
             StartCoroutine(MoveCabinRoutine());
         }
+    }
+
+    public void OnPlayerEnterCabin()
+    {
+        playersInsideTheCabin++;
+    }
+
+    public void OnPlayerExitCabin()
+    {
+        playersInsideTheCabin = Mathf.Max(0, playersInsideTheCabin - 1);
     }
 
     #endregion
