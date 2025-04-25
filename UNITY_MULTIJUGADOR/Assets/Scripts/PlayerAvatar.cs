@@ -90,6 +90,8 @@ public class PlayerAvatar : NetworkBehaviour
     public Slider reloadBar;
     public Slider powerUpBar;
     public Image reloadFill;
+    public Image powerUpFill;
+    public Image buffSliderFill;
     public Text killFeedText;
     private const int MAX_KILL_MESSAGES = 5;
     private readonly Queue<string> killMessages = new Queue<string>();
@@ -615,19 +617,31 @@ public class PlayerAvatar : NetworkBehaviour
     // Verifica si el buff terminó (llamar desde Update)
     private void UpdateBuffState()
     {
-        float timeLeft = buffEndTime.Value = Time.time + 30f;
+        // Calcula el tiempo restante del buff en base a Time.time
+        float timeLeft = Mathf.Clamp01((buffEndTime.Value - Time.time)/ 30);
 
+        // Si hay algún buff activo
         if (hasSpeedBuff.Value || hasDamageBuff.Value)
         {
-            if (buffSlider != null)
+            // Actualiza las barras visuales
+            if (buffSlider != null && buffSliderFill != null)
             {
-                buffSlider.value = timeLeft;
-                powerUpBar.value = timeLeft;
+                Debug.Log("gay1");
+                buffSlider.value = timeLeft; //Slider exterior (lo ven otro player)
+                buffSliderFill.color = Color.Lerp(Color.red, Color.green, timeLeft);
             }
 
+            if (powerUpBar != null && powerUpFill != null)
+            {
+                Debug.Log("gay2");
+                powerUpBar.value = timeLeft; //Slider local en el canvas
+                powerUpFill.color = Color.Lerp(Color.red, Color.green, timeLeft);
+            }
+
+            // Si se acabó el buff, avisa al servidor
             if (timeLeft <= 0f)
             {
-                EndBuffServerRpc(); // Solo el dueño pide al server que se termine el buff
+                EndBuffServerRpc(); // Solo el dueño pide al server que termine el buff
             }
         }
     }
@@ -646,9 +660,7 @@ public class PlayerAvatar : NetworkBehaviour
         string message = type switch
         {
             PowerUpType.PowerBullet => $"¡Balas Potenciadas! ({duration}s)",
-            PowerUpType.SpeedCola => $"¡Velocidad Aumentada! ({duration}s)",
-            PowerUpType.HP => "¡Vida Restaurada!",
-            _ => ""
+            PowerUpType.SpeedCola => $"¡Velocidad Aumentada! ({duration}s)"
         };
 
         if (powerUpUICoroutine != null)

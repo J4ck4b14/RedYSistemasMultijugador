@@ -82,6 +82,8 @@ public class ElevatorCabin : NetworkBehaviour
         if (isMoving) return;
         bool sameFloor = IsAtThisFloor(door);
 
+        ElevatorDoor currentDoor = IsAtThisFloor(bottomDoor) ? bottomDoor : topDoor;
+
         ElevatorDoor otherDoor = (door == bottomDoor) ? topDoor : bottomDoor;
         Transform otherFloor = (door == bottomDoor) ? topFloor : bottomFloor;
 
@@ -114,7 +116,7 @@ public class ElevatorCabin : NetworkBehaviour
         targetDoor = door;
         targetFloor = (door == bottomDoor) ? bottomFloor : topFloor;
 
-        ElevatorDoor currentDoor = IsAtThisFloor(bottomDoor) ? bottomDoor : topDoor;
+        
         activeDoor = currentDoor;
         Debug.Log($"[CABIN] Closing {currentDoor.name} before moving");
         currentDoor.ForceClose();
