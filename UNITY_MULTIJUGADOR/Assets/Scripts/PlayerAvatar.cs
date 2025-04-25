@@ -61,6 +61,8 @@ public class PlayerAvatar : NetworkBehaviour
     private readonly float gravityValue = -9.81f;
     private Vector3 playerVelocity;
     private bool groundedPlayer;
+    private RotatingDoor nearbyRotatingDoor;
+    private ElevatorDoor nearbyElevatorDoor;
     #endregion
 
     #region Power Up System
@@ -229,6 +231,19 @@ public class PlayerAvatar : NetworkBehaviour
         float axisV = Input.GetAxis("Vertical");
         bool shootPressed = Input.GetMouseButton(0);
 
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            if (nearbyRotatingDoor != null)
+            {
+                nearbyRotatingDoor.TryInteractServerRpc(); // Call server to rotate door
+            }
+            else if (nearbyElevatorDoor != null)
+            {
+                Debug.Log("[CLIENT] Pressed E near elevator door: " + nearbyElevatorDoor.name);
+                nearbyElevatorDoor.TryOpenFromPlayerServerRpc(); // Elevator handles logic itself
+            }
+        }
+
         // Client-side prediction
         if (shootPressed && Time.time >= localCooldownEndTime)
         {
@@ -376,6 +391,39 @@ public class PlayerAvatar : NetworkBehaviour
     {
         killFeedText.text = string.Join("\n", killMessages);
     }
+    #endregion
+
+        #region Door System
+
+    /// <summary>
+    /// Called by a door when the player enters its trigger
+    /// </summary>
+    public void SetNearbyRotatingDoor(RotatingDoor door)
+    {
+        nearbyRotatingDoor = door;
+    }
+
+    public void ClearNearbyRotatingDoor(RotatingDoor door)
+    {
+        if (nearbyRotatingDoor == door)
+        {
+            nearbyRotatingDoor = null;
+        }
+    }
+
+    public void SetNearbyElevatorDoor(ElevatorDoor door)
+    {
+        nearbyElevatorDoor = door;
+    }
+
+    public void ClearNearbyElevatorDoor(ElevatorDoor door)
+    {
+        if (nearbyElevatorDoor == door)
+        {
+            nearbyElevatorDoor = null;
+        }
+    }
+
     #endregion
     #endregion
 
