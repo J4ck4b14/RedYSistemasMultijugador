@@ -1,11 +1,14 @@
 using UnityEngine;
 using Unity.Netcode;
 using System.Collections;
+using Unity.Netcode.Components;
 
 /// <summary>
 /// <para>Smart sliding door for an elevator floor.</para>
 /// Handles opening/closing, reopens if interrupted, and syncs with the cabin logic.
-/// </summary>
+/// </summary> 
+[RequireComponent(typeof(NetworkObject))]
+[RequireComponent(typeof(NetworkTransform))]
 public class ElevatorDoor : NetworkBehaviour
 {
     #region Settings

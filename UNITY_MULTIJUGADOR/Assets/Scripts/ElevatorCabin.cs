@@ -2,11 +2,14 @@ using UnityEngine;
 using Unity.Netcode;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Netcode.Components;
 
 /// <summary>
 /// <para>Elevator cabin that travels between two floors.</para>
 /// Only moves when doors are closed, and opens the correct door when it arrives.
 /// </summary>
+[RequireComponent(typeof(NetworkObject))]
+[RequireComponent(typeof(NetworkTransform))]
 public class ElevatorCabin : NetworkBehaviour
 {
     #region Configuration
@@ -80,20 +83,19 @@ public class ElevatorCabin : NetworkBehaviour
     public void RequestCabinToThisFloor(ElevatorDoor door)
     {
         if (isMoving) return;
+
         bool sameFloor = IsAtThisFloor(door);
-
         ElevatorDoor currentDoor = IsAtThisFloor(bottomDoor) ? bottomDoor : topDoor;
-
         ElevatorDoor otherDoor = (door == bottomDoor) ? topDoor : bottomDoor;
         Transform otherFloor = (door == bottomDoor) ? topFloor : bottomFloor;
 
         if (sameFloor)
         {
-            if(playersInsideTheCabin > 0)
+            if (playersInsideTheCabin > 0)
             {
+                // Move to the opposite floor
                 targetDoor = otherDoor;
                 targetFloor = otherFloor;
-
                 activeDoor = door;
                 door.ForceClose();
             }
@@ -105,21 +107,14 @@ public class ElevatorCabin : NetworkBehaviour
         }
         else
         {
+            // Summon cabin to this floor
             targetDoor = door;
-            targetFloor = (door = bottomDoor) ? bottomFloor : topFloor;
-
+            targetFloor = (door == bottomDoor) ? bottomFloor: topFloor;
             activeDoor = currentDoor;
             currentDoor.ForceClose();
         }
 
-
-        targetDoor = door;
-        targetFloor = (door == bottomDoor) ? bottomFloor : topFloor;
-
-        
-        activeDoor = currentDoor;
-        Debug.Log($"[CABIN] Closing {currentDoor.name} before moving");
-        currentDoor.ForceClose();
+        Debug.Log($"[CABIN] Closing {activeDoor.name} before moving");
     }
 
     /// <summary>

@@ -515,6 +515,7 @@ GameObject:
   - component: {fileID: 7388053607447168300}
   - component: {fileID: 4637795471621827292}
   - component: {fileID: 8673077348247562735}
+  - component: {fileID: 7738829836690308850}
   m_Layer: 0
   m_Name: Cabin
   m_TagString: Untagged
@@ -613,6 +614,37 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 4.0206666, y: 2.9243631, z: 2.9807956}
   m_Center: {x: -0.012404203, y: 1.5827184, z: 2.1460354}
+--- !u!114 &7738829836690308850
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 901873631107167153}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  UseUnreliableDeltas: 0
+  SyncPositionX: 0
+  SyncPositionY: 1
+  SyncPositionZ: 0
+  SyncRotAngleX: 0
+  SyncRotAngleY: 0
+  SyncRotAngleZ: 0
+  SyncScaleX: 0
+  SyncScaleY: 0
+  SyncScaleZ: 0
+  PositionThreshold: 0.001
+  RotAngleThreshold: 0.01
+  ScaleThreshold: 0.01
+  UseQuaternionSynchronization: 0
+  UseQuaternionCompression: 0
+  UseHalfFloatPrecision: 0
+  InLocalSpace: 1
+  Interpolate: 1
+  SlerpPosition: 0
 --- !u!1 &1242994772591094896
 GameObject:
   m_ObjectHideFlags: 0
@@ -1191,6 +1223,7 @@ GameObject:
   - component: {fileID: 5335077186236866099}
   - component: {fileID: 6458753407861032291}
   - component: {fileID: 2688554792892595948}
+  - component: {fileID: 6587652335003326063}
   m_Layer: 0
   m_Name: Doors
   m_TagString: Untagged
@@ -1273,6 +1306,37 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1.6365182, y: 2.291126, z: 1}
   m_Center: {x: -0.00834626, y: 1.2704924, z: -2.9031144e-16}
+--- !u!114 &6587652335003326063
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1842740834961972530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  UseUnreliableDeltas: 0
+  SyncPositionX: 1
+  SyncPositionY: 0
+  SyncPositionZ: 1
+  SyncRotAngleX: 0
+  SyncRotAngleY: 0
+  SyncRotAngleZ: 0
+  SyncScaleX: 0
+  SyncScaleY: 0
+  SyncScaleZ: 0
+  PositionThreshold: 0.001
+  RotAngleThreshold: 0.01
+  ScaleThreshold: 0.01
+  UseQuaternionSynchronization: 0
+  UseQuaternionCompression: 0
+  UseHalfFloatPrecision: 0
+  InLocalSpace: 1
+  Interpolate: 1
+  SlerpPosition: 0
 --- !u!1 &1976164668467212520
 GameObject:
   m_ObjectHideFlags: 0
@@ -4367,6 +4431,7 @@ GameObject:
   - component: {fileID: 5124679115151731587}
   - component: {fileID: 4789812151056084865}
   - component: {fileID: 969330729104471466}
+  - component: {fileID: 7251006646110890039}
   m_Layer: 0
   m_Name: Doors
   m_TagString: Untagged
@@ -4449,6 +4514,37 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1.6365182, y: 2.291126, z: 1}
   m_Center: {x: -0.00834626, y: 1.2704924, z: -2.9031144e-16}
+--- !u!114 &7251006646110890039
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6137623341346367282}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  UseUnreliableDeltas: 0
+  SyncPositionX: 1
+  SyncPositionY: 0
+  SyncPositionZ: 1
+  SyncRotAngleX: 0
+  SyncRotAngleY: 0
+  SyncRotAngleZ: 0
+  SyncScaleX: 0
+  SyncScaleY: 0
+  SyncScaleZ: 0
+  PositionThreshold: 0.001
+  RotAngleThreshold: 0.01
+  ScaleThreshold: 0.01
+  UseQuaternionSynchronization: 0
+  UseQuaternionCompression: 0
+  UseHalfFloatPrecision: 0
+  InLocalSpace: 1
+  Interpolate: 1
+  SlerpPosition: 0
 --- !u!1 &6223333175709930808
 GameObject:
   m_ObjectHideFlags: 0

@@ -10444,6 +10444,10 @@ PrefabInstance:
       propertyPath: GlobalObjectIdHash
       value: 2116409553
       objectReference: {fileID: 0}
+    - target: {fileID: 5124679115151731587, guid: 9cfad0c43e4ad00429380e4cfa6aa67c, type: 3}
+      propertyPath: doorVisual
+      value: 
+      objectReference: {fileID: 1172523872}
     - target: {fileID: 5335077186236866099, guid: 9cfad0c43e4ad00429380e4cfa6aa67c, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 3228821764
@@ -12140,6 +12144,11 @@ Transform:
 --- !u!4 &1172523871 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 130505436814860882, guid: 9cfad0c43e4ad00429380e4cfa6aa67c, type: 3}
+  m_PrefabInstance: {fileID: 1053431017}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &1172523872 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3531207071837287013, guid: 9cfad0c43e4ad00429380e4cfa6aa67c, type: 3}
   m_PrefabInstance: {fileID: 1053431017}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1177278993

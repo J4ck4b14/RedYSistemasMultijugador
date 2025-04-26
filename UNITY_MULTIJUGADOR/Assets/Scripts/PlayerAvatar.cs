@@ -1,9 +1,9 @@
-using UnityEngine;
-using Unity.Netcode;
-using UnityEngine.UI;
-using Unity.Netcode.Components;
-using System.Collections.Generic;
 using System.Collections;
+using System.Collections.Generic;
+using Unity.Netcode;
+using Unity.Netcode.Components;
+using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// <para>Networked player controller that handles movement, shooting, health, and visual representation.</para>
@@ -89,14 +89,17 @@ public class PlayerAvatar : NetworkBehaviour
     public Slider healthSlider;
     public Slider reloadBar;
     public Slider powerUpBar;
+    // Referencia al slider visual sobre el jugador (debe conectarse en el inspector)
+    public Slider buffSlider;
     public Image reloadFill;
     public Image powerUpFill;
     public Image buffSliderFill;
     public Text killFeedText;
     private const int MAX_KILL_MESSAGES = 5;
     private readonly Queue<string> killMessages = new Queue<string>();
-    // Referencia al slider visual sobre el jugador (debe conectarse en el inspector)
-    public Slider buffSlider;
+
+    private static Transform localCameraTransform;
+
     #endregion
     #endregion
 
@@ -136,14 +139,21 @@ public class PlayerAvatar : NetworkBehaviour
     /// </summary>
     private void Update()
     {
-        if (isDead.Value || !IsLocalPlayer) 
+        if (isDead.Value)
         {
-            return; 
+            return;
+        }
+
+        UpdateBuffState();  // Run buff logic on ALL instances
+
+        if (!IsLocalPlayer)
+        {
+            UpdateRemotePlayerUI(); // Keep remote health/buff facing camera
+            return;
         }
 
         UpdateReloadUI();
         HandleInput();
-        UpdateBuffState();
     }
     #endregion
 
@@ -223,7 +233,7 @@ public class PlayerAvatar : NetworkBehaviour
     /* -------------------------------------------------------------------------- */
     #region Player System
 
-        #region Input Handling
+    #region Input Handling
     /// <summary>
     /// Handles player input (local player only)
     /// </summary>
@@ -275,7 +285,7 @@ public class PlayerAvatar : NetworkBehaviour
     }
     #endregion
 
-        #region Movement System
+    #region Movement System
     /// <summary>
     /// Handles player movement physics
     /// </summary>
@@ -301,7 +311,7 @@ public class PlayerAvatar : NetworkBehaviour
     }
     #endregion
 
-        #region Shooting System
+    #region Shooting System
     /// <summary>
     /// Updates shooting cooldown timer (server only)
     /// </summary>
@@ -319,7 +329,7 @@ public class PlayerAvatar : NetworkBehaviour
     }
     #endregion
 
-        #region Health System
+    #region Health System
     /// <summary>
     /// Applies damage to player (server only)
     /// </summary>
@@ -395,7 +405,7 @@ public class PlayerAvatar : NetworkBehaviour
     }
     #endregion
 
-        #region Door System
+    #region Door System
 
     /// <summary>
     /// Called by a door when the player enters its trigger
@@ -439,7 +449,7 @@ public class PlayerAvatar : NetworkBehaviour
     /// </summary>
     private void SetupLocalPlayerUI()
     {
-        // Enable first-person UI elements
+        // Ensure only the local player's camera is active
         if (playerCamera != null)
         {
             playerCamera.gameObject.SetActive(true);
@@ -454,6 +464,12 @@ public class PlayerAvatar : NetworkBehaviour
             if (reloadBar != null)
             {
                 reloadBar.gameObject.SetActive(true);
+            }
+
+            // Remember this player's camera for everybody else's facing logic
+            if (playerCamera != null)
+            {
+                localCameraTransform = playerCamera.transform; // <---
             }
         }
 
@@ -473,6 +489,20 @@ public class PlayerAvatar : NetworkBehaviour
 
         killFeedText.gameObject.SetActive(true);
         killFeedText.text = "";
+
+        // Hide the local power-up bar at game start
+        if (powerUpBar != null)
+        {
+            powerUpBar.gameObject.SetActive(false);
+            powerUpBar.value = 0f;
+        }
+
+        // Ensure the buff slider is hidden and reset at spawn
+        if (buffSlider != null)
+        {
+            buffSlider.value = 0f;            // Start at zero
+            buffSlider.gameObject.SetActive(false); // Hide until buff activates
+        }
     }
 
     /// <summary>
@@ -502,6 +532,19 @@ public class PlayerAvatar : NetworkBehaviour
             healthBar.SetActive(true);
             healthSlider.value = currentHealth.Value / (float)INITIAL_HEALTH;
         }
+
+        // Hide their little world-space buff slider until *they* get a buff
+        if (buffSlider != null)
+        {
+            buffSlider.gameObject.SetActive(false);
+            buffSlider.value = 0f;
+        }
+
+        // Also ensure the local-only bar never shows on remote avatars
+        if (powerUpBar != null)
+        {
+            powerUpBar.gameObject.SetActive(false);
+        }
     }
 
     /// <summary>
@@ -509,9 +552,23 @@ public class PlayerAvatar : NetworkBehaviour
     /// </summary>
     private void UpdateRemotePlayerUI()
     {
-        if (healthBar != null && Camera.main != null)
+        if (Camera.main != null)
         {
-            healthBar.transform.LookAt(Camera.main.transform);
+            // Health bar
+            if (healthBar != null)
+            {
+                Vector3 dir = localCameraTransform.position - healthBar.transform.position;
+                dir.y = 0;
+                healthBar.transform.rotation = Quaternion.LookRotation(dir);
+            }
+
+            // Buff slider
+            if (buffSlider != null)
+            {
+                Vector3 dir2 = localCameraTransform.position - buffSlider.transform.position;
+                dir2.y = 0;
+                buffSlider.transform.rotation = Quaternion.LookRotation(dir2);
+            }
         }
 
         killFeedText.gameObject.SetActive(false);
@@ -530,6 +587,15 @@ public class PlayerAvatar : NetworkBehaviour
         if (reloadFill != null)
         {
             reloadFill.color = Color.Lerp(Color.red, Color.green, progress);
+        }
+    }
+
+    private void UpdateRemotePowerUpUI()
+    {
+        if (buffSlider != null && Camera.main != null)
+        {
+            // Make the slider always face the camera
+            buffSlider.transform.LookAt(Camera.main.transform);
         }
     }
 
@@ -557,9 +623,15 @@ public class PlayerAvatar : NetworkBehaviour
         {
             healthText.text = $"HP: {current}";
         }
-        else if (healthSlider != null)
+        else
         {
-            healthSlider.value = current / (float)INITIAL_HEALTH;
+            if (healthSlider != null)
+            {
+                healthSlider.value = current / (float)INITIAL_HEALTH;
+            }
+
+            // Update the power-up slider for remote players
+            UpdateRemotePowerUpUI();
         }
     }
 
@@ -583,6 +655,8 @@ public class PlayerAvatar : NetworkBehaviour
     public void SendPowerUpToServerRpc(PowerUpType type)
     {
         Debug.Log($"[SERVER] PowerUp recibido: {type} de {OwnerClientId}");
+
+        // Apply buffs based on the power-up type
         switch (type)
         {
             case PowerUpType.HP:
@@ -602,14 +676,16 @@ public class PlayerAvatar : NetworkBehaviour
                 break;
         }
 
+        // Update the local player's UI elements for buffs
         if (IsLocalPlayer)
         {
             ShowPowerUpUI(type, 30f);
+
             if (buffSlider != null)
             {
                 buffSlider.gameObject.SetActive(true);
                 buffSlider.maxValue = 30f;
-                buffSlider.value = 30f;
+                buffSlider.value = 30f;      // Jumps to full duration, only activated when the power-up is taken
             }
         }
     }
@@ -618,23 +694,30 @@ public class PlayerAvatar : NetworkBehaviour
     private void UpdateBuffState()
     {
         // Calcula el tiempo restante del buff en base a Time.time
-        float timeLeft = Mathf.Clamp01((buffEndTime.Value - Time.time)/ 30);
+        float timeLeft = Mathf.Clamp01((buffEndTime.Value - Time.time) / 30);
 
         // Si hay algún buff activo
         if (hasSpeedBuff.Value || hasDamageBuff.Value)
         {
+            // World-space bar for THIS avatar (local or remote)
+            if (buffSlider != null)
+                buffSlider.gameObject.SetActive(true);
+
+            // Local UI only if YOU are the buffed owner
+            if (IsLocalPlayer && powerUpBar != null)
+                powerUpBar.gameObject.SetActive(true);
+
             // Actualiza las barras visuales
             if (buffSlider != null && buffSliderFill != null)
             {
-                Debug.Log("gay1");
-                buffSlider.value = timeLeft; //Slider exterior (lo ven otro player)
+                buffSlider.value = timeLeft; // Slider exterior (lo que ven otro player)
                 buffSliderFill.color = Color.Lerp(Color.red, Color.green, timeLeft);
             }
 
+            // Update the power-up bar for the local player
             if (powerUpBar != null && powerUpFill != null)
             {
-                Debug.Log("gay2");
-                powerUpBar.value = timeLeft; //Slider local en el canvas
+                powerUpBar.value = timeLeft; // Slider local en el canvas
                 powerUpFill.color = Color.Lerp(Color.red, Color.green, timeLeft);
             }
 
@@ -643,6 +726,16 @@ public class PlayerAvatar : NetworkBehaviour
             {
                 EndBuffServerRpc(); // Solo el dueño pide al server que termine el buff
             }
+        }
+        else
+        {
+            // Hide world-space when THIS avatar has no buff
+            if (buffSlider != null)
+                buffSlider.gameObject.SetActive(false);
+
+            // Hide local bar when YOU have no buff
+            if (IsLocalPlayer && powerUpBar != null)
+                powerUpBar.gameObject.SetActive(false);
         }
     }
     [ServerRpc]
@@ -660,7 +753,8 @@ public class PlayerAvatar : NetworkBehaviour
         string message = type switch
         {
             PowerUpType.PowerBullet => $"¡Balas Potenciadas! ({duration}s)",
-            PowerUpType.SpeedCola => $"¡Velocidad Aumentada! ({duration}s)"
+            PowerUpType.SpeedCola => $"¡Velocidad Aumentada! ({duration}s)",
+            _ => string.Empty
         };
 
         if (powerUpUICoroutine != null)
@@ -670,7 +764,7 @@ public class PlayerAvatar : NetworkBehaviour
     }
 
     // Corrutina que muestra el mensaje durante la duración del buff
-   private IEnumerator DisplayPowerUpMessage(string message, float duration)
+    private IEnumerator DisplayPowerUpMessage(string message, float duration)
     {
         powerUpText.text = message;
         powerUpText.gameObject.SetActive(true);
