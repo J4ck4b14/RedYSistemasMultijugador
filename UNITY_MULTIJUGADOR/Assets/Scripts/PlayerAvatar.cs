@@ -469,7 +469,7 @@ public class PlayerAvatar : NetworkBehaviour
             // Remember this player's camera for everybody else's facing logic
             if (playerCamera != null)
             {
-                localCameraTransform = playerCamera.transform; // <---
+                localCameraTransform = playerCamera.transform;
             }
         }
 
