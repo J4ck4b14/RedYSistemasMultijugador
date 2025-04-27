@@ -67,6 +67,7 @@ public class PlayerAvatar : NetworkBehaviour
     private bool groundedPlayer;
     private RotatingDoor nearbyRotatingDoor;
     private ElevatorDoor nearbyElevatorDoor;
+    private ElevatorCabin nearbyCabin;
     #endregion
 
     #region Power Up System
@@ -320,6 +321,11 @@ public class PlayerAvatar : NetworkBehaviour
                 Debug.Log("[CLIENT] Pressed E near elevator door: " + nearbyElevatorDoor.name);
                 nearbyElevatorDoor.TryOpenFromPlayerServerRpc(); // Elevator handles logic itself
             }
+            else if (nearbyCabin != null)
+            {
+                Debug.Log("[CLIENT] Inside cabin — requesting other floor");
+                nearbyCabin.RequestOtherFloorServerRpc();
+            }
         }
 
         // Client-side prediction
@@ -500,6 +506,15 @@ public class PlayerAvatar : NetworkBehaviour
         {
             nearbyElevatorDoor = null;
         }
+    }
+
+    public void SetNearbyElevatorCabin(ElevatorCabin cabin)
+    {
+        nearbyCabin = cabin;
+    }
+    public void ClearNearbyElevatorCabin(ElevatorCabin cabin)
+    {
+        if (nearbyCabin == cabin) nearbyCabin = null;
     }
 
     #endregion

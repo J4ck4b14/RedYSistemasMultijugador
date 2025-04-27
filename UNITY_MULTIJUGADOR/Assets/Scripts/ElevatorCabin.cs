@@ -187,5 +187,17 @@ public class ElevatorCabin : NetworkBehaviour
         isMoving = false;
     }
 
+    /// <summary>
+    /// Called by any client to send the elevator to the opposite floor
+    /// </summary>
+    [ServerRpc(RequireOwnership = false)]
+    public void RequestOtherFloorServerRpc(ServerRpcParams rpcParams = default)
+    {
+        Debug.Log("[CABIN] Received RequestOtherFloorServerRpc");
+        // pick the other door
+        ElevatorDoor toDoor = IsAtThisFloor(bottomDoor) ? topDoor : bottomDoor;
+        RequestCabinToThisFloor(toDoor);
+    }
+
     #endregion
 }
