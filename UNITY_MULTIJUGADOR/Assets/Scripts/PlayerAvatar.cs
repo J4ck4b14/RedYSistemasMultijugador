@@ -323,7 +323,7 @@ public class PlayerAvatar : NetworkBehaviour
             }
             else if (nearbyCabin != null)
             {
-                Debug.Log("[CLIENT] Inside cabin — requesting other floor");
+                Debug.Log($"[CLIENT] E pressed inside cabin trap of {nearbyCabin.name}");
                 nearbyCabin.RequestOtherFloorServerRpc();
             }
         }
@@ -421,59 +421,81 @@ public class PlayerAvatar : NetworkBehaviour
     }
 
     /// <summary>
-    /// Handles player death (server only)
+    /// Called on the server to broadcast a new kill message to *all* clients.
+    /// </summary>
+    [ClientRpc]
+    private void BroadcastKillClientRpc(string message)
+    {
+        // find *your* local PlayerAvatar on this client and show the feed there
+        foreach (var pa in Object.FindObjectsByType<PlayerAvatar>(
+                 FindObjectsSortMode.None))
+        {
+            if (pa.IsLocalPlayer)
+            {
+                pa.AddKillMessage(message);
+                break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Enqueue and display the message, then schedule its removal.
+    /// </summary>
+    private void AddKillMessage(string message)
+    {
+        killMessages.Enqueue(message);
+        if (killMessages.Count > MAX_KILL_MESSAGES)
+            killMessages.Dequeue();
+
+        UpdateKillFeedDisplay();
+        StartCoroutine(RemoveKillMessageAfterDelay(message, 3f));
+    }
+
+    private IEnumerator RemoveKillMessageAfterDelay(string message, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
+        var temp = new List<string>(killMessages);
+        if (temp.Remove(message))
+        {
+            killMessages.Clear();
+            foreach (var m in temp) killMessages.Enqueue(m);
+            UpdateKillFeedDisplay();
+        }
+    }
+
+    private void UpdateKillFeedDisplay()
+    {
+        killFeedText.text = string.Join("\n", killMessages);
+    }
+
+    /// <summary>
+    /// Helper: format the colored kill string. Call this from your death logic.
+    /// </summary>
+    private string FormatKillMessage(ulong killerId)
+    {
+        Color killerCol = NetworkManager.Singleton
+            .ConnectedClients[killerId]
+            .PlayerObject.GetComponent<PlayerAvatar>()
+            .playerColor.Value;
+
+        string killerHex = ColorUtility.ToHtmlStringRGB(killerCol);
+        string victimHex = ColorUtility.ToHtmlStringRGB(playerColor.Value);
+
+        return $"<color=#{killerHex}>Player {killerId}</color> killed <color=#{victimHex}>Player {OwnerClientId}</color>";
+    }
+
+    /// <summary>
+    /// Call this on the **server** when someone dies.
     /// </summary>
     private void HandlePlayerDeath(ulong killerId)
     {
         isDead.Value = true;
         playerColor.Value = DEAD_COLOR;
 
-        // Get killer's color
-        Color killerColor = NetworkManager.Singleton.ConnectedClients[killerId]
-            .PlayerObject.GetComponent<PlayerAvatar>().playerColor.Value;
-
-        // Format kill message
-        string message = FormatKillMessage(killerId, killerColor);
-
-        // Send to server to broadcast
-        ReportKillServerRpc(message);
-    }
-
-    [ServerRpc]
-    private void ReportKillServerRpc(string message)
-    {
-        BroadcastKillClientRpc(message);
-    }
-
-    [ClientRpc]
-    private void BroadcastKillClientRpc(string message)
-    {
-        AddKillMessage(message);
-    }
-
-    private string FormatKillMessage(ulong killerId, Color killerColor)
-    {
-        string killerHex = ColorUtility.ToHtmlStringRGB(killerColor);
-        string victimHex = ColorUtility.ToHtmlStringRGB(playerColor.Value);
-        return $"<color=#{killerHex}>Player {killerId}</color> killed <color=#{victimHex}>Player {OwnerClientId}</color>";
-    }
-
-    private void AddKillMessage(string message)
-    {
-        if (!IsLocalPlayer) return; // Only update local player's kill feed
-
-        killMessages.Enqueue(message);
-        if (killMessages.Count > MAX_KILL_MESSAGES)
-        {
-            killMessages.Dequeue();
-        }
-
-        UpdateKillFeedDisplay();
-    }
-
-    private void UpdateKillFeedDisplay()
-    {
-        killFeedText.text = string.Join("\n", killMessages);
+        // build and broadcast
+        string msg = FormatKillMessage(killerId);
+        BroadcastKillClientRpc(msg);
     }
     #endregion
 

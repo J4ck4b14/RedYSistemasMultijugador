@@ -6,20 +6,26 @@ public class ElevatorTrigger : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if(other.CompareTag("Player") && other.TryGetComponent<PlayerAvatar>(out var player))
+        Debug.Log($"[CABIN TRIGGER] OnTriggerEnter by {other.name}");
+        if (!other.CompareTag("Player")) return;
+
+        if (other.TryGetComponent<PlayerAvatar>(out var player))
         {
+            Debug.Log($"[CABIN TRIGGER] Registering {player.name}");
             cabin.OnPlayerEnterCabin();
             player.SetNearbyElevatorCabin(cabin);
-            Debug.Log($"[CABIN TRIGGER] {player.name} entered cabin");
         }
     }
     private void OnTriggerExit(Collider other)
     {
-        if(other.CompareTag("Player") && other.TryGetComponent<PlayerAvatar>( out var player))
+        Debug.Log($"[CABIN TRIGGER] OnTriggerExit by {other.name}");
+        if (!other.CompareTag("Player")) return;
+
+        if (other.TryGetComponent<PlayerAvatar>(out var player))
         {
+            Debug.Log($"[CABIN TRIGGER] Clearing {player.name}");
             cabin.OnPlayerExitCabin();
             player.ClearNearbyElevatorCabin(cabin);
-            Debug.Log($"[CABIN TRIGGER] {player.name} exited cabin");
         }
     }
 }
