@@ -46,6 +46,10 @@ public class PlayerAvatar : NetworkBehaviour
     /// <summary>Synchronized across network. Tracks if player is dead</summary>
     [Tooltip("Are we dead? Syncs so everyone knows we're toast")]
     public NetworkVariable<bool> isDead = new NetworkVariable<bool>(false);
+
+    /// <summary>Syncs the player’s flashlight on/off state</summary>
+    [Tooltip("Is the flashlight on?")]
+    public NetworkVariable<bool> flashlightOn = new NetworkVariable<bool>(true);
     #endregion
 
     #region Player Components
@@ -87,6 +91,13 @@ public class PlayerAvatar : NetworkBehaviour
     public Text powerUpText;
     public GameObject healthBar;
     public Slider healthSlider;
+    [Tooltip("The Background Image of the world-space health bar slider.")]
+    [SerializeField] private Image healthBarBackgroundImage;
+    [Tooltip("The Fill Image of the world-space health bar slider.")]
+    [SerializeField] private Image healthBarFillImage;
+    private Coroutine _healthBarTimerCoroutine;
+    private const float k_HB_ShowTime = 3f;
+    private const float k_HB_FadeTime = 1f;
     public Slider reloadBar;
     public Slider powerUpBar;
     // Referencia al slider visual sobre el jugador (debe conectarse en el inspector)
@@ -95,12 +106,33 @@ public class PlayerAvatar : NetworkBehaviour
     public Image powerUpFill;
     public Image buffSliderFill;
     public Text killFeedText;
+
     private const int MAX_KILL_MESSAGES = 5;
     private readonly Queue<string> killMessages = new Queue<string>();
 
     private static Transform localCameraTransform;
 
     #endregion
+    #region Flashlight Settings
+    [Header("Flashlight Settings")]
+    [Tooltip("The little disk MeshRenderer whose material we swap when toggling.")]
+    [SerializeField] private Renderer flashlightDiskRenderer;
+    [Tooltip("Emissive material to use when flashlight is ON.")]
+    [SerializeField] private Material flashlightOnMaterial;
+    [Tooltip("Emissive material to use when flashlight is OFF.")]
+    [SerializeField] private Material flashlightOffMaterial;
+    [Tooltip("Spotlight component for the flashlight beam.")]
+    [SerializeField] private Light flashlightSpotlight;
+    [Tooltip("Optional Point Light to simulate spill-light.")]
+    [SerializeField] private Light flashlightPointLight;
+
+    // runtime instances & state
+    private Material _flashlightOnMatInst;
+    private Material _flashlightOffMatInst;
+    private float _defaultSpotIntensity;
+    private float _defaultPointIntensity;
+    #endregion
+
     #endregion
 
     /* -------------------------------------------------------------------------- */
@@ -132,6 +164,22 @@ public class PlayerAvatar : NetworkBehaviour
         }
 
         ConfigurePlayerUI();
+        // instantiate materials and cache default intensities
+        SetupFlashlight();
+
+        // now hook the networked toggle
+        flashlightOn.OnValueChanged += OnFlashlightStateChanged;
+        // and apply whichever state we already have (true = flash ON)
+        OnFlashlightStateChanged(!flashlightOn.Value, flashlightOn.Value);
+    }
+    // This is just to prevent a deferred trigger warning that showed up
+    public override void OnNetworkDespawn()
+    {
+        base.OnNetworkDespawn();
+        playerColor.OnValueChanged -= OnColorChanged;
+        currentHealth.OnValueChanged -= OnHealthChanged;
+        isDead.OnValueChanged -= OnDeathStateChanged;
+        flashlightOn.OnValueChanged -= OnFlashlightStateChanged;
     }
 
     /// <summary>
@@ -202,6 +250,20 @@ public class PlayerAvatar : NetworkBehaviour
             SetupRemotePlayerUI();
         }
     }
+
+    private void SetupFlashlight()
+    {
+        // clone the “on”/“off” materials
+        _flashlightOnMatInst = Instantiate(flashlightOnMaterial);
+        _flashlightOffMatInst = Instantiate(flashlightOffMaterial);
+        flashlightDiskRenderer.material = _flashlightOnMatInst;
+
+        // remember how bright your lights were by default
+        _defaultSpotIntensity = flashlightSpotlight != null
+            ? flashlightSpotlight.intensity : 1f;
+        _defaultPointIntensity = flashlightPointLight != null
+            ? flashlightPointLight.intensity : 1f;
+    }
     #endregion
 
     #region Spawn System
@@ -242,6 +304,10 @@ public class PlayerAvatar : NetworkBehaviour
         float axisH = Input.GetAxis("Horizontal");
         float axisV = Input.GetAxis("Vertical");
         bool shootPressed = Input.GetMouseButton(0);
+
+        // toggle flashlight on the server (syncs out to all clients)
+        if (Input.GetButtonDown("Flashlight"))
+            ToggleFlashlightServerRpc();
 
         if (Input.GetKeyDown(KeyCode.E))
         {
@@ -437,6 +503,32 @@ public class PlayerAvatar : NetworkBehaviour
     }
 
     #endregion
+
+    #region Flashlight
+    private IEnumerator ShowAndHideHealthBar()
+    {
+        // 1) show immediately
+        SetHealthBarImagesAlpha(1f);
+
+        // 2) wait for the visible duration
+        yield return new WaitForSeconds(k_HB_ShowTime);
+
+        // 3) fade out over fade duration
+        float t = 0f;
+        while (t < k_HB_FadeTime)
+        {
+            t += Time.deltaTime;
+            float alpha = Mathf.Lerp(1f, 0f, t / k_HB_FadeTime);
+            SetHealthBarImagesAlpha(alpha);
+            yield return null;
+        }
+
+        // 4) ensure fully hidden and clear the coroutine reference
+        SetHealthBarImagesAlpha(0f);
+        _healthBarTimerCoroutine = null;
+    }
+    #endregion
+
     #endregion
 
     /* -------------------------------------------------------------------------- */
@@ -478,9 +570,6 @@ public class PlayerAvatar : NetworkBehaviour
         {
             healthBar.SetActive(false);
         }
-        playerCamera.gameObject.SetActive(true);
-        healthText.gameObject.SetActive(true);
-        healthText.text = $"HP: {currentHealth.Value}";
 
         if (healthSlider != null)
         {
@@ -506,44 +595,65 @@ public class PlayerAvatar : NetworkBehaviour
     }
 
     /// <summary>
-    /// Set up UI for remote players (third person view)
+    /// Set up UI for remote players (third person view).
+    /// Hides first-person HUD and prepares world-space bars.
     /// </summary>
     private void SetupRemotePlayerUI()
     {
-        // Disable first-person UI
-        if (playerCamera != null)
-        {
-            playerCamera.gameObject.SetActive(false);
-        }
+        // 1) never show the local player's kill-feed on remotes
+        if (killFeedText != null)
+            killFeedText.gameObject.SetActive(false);
 
-        if (healthText != null)
-        {
-            healthText.gameObject.SetActive(false);
-        }
+        // 2) disable all first-person UI elements
+        if (playerCamera != null) playerCamera.gameObject.SetActive(false);
+        if (healthText != null) healthText.gameObject.SetActive(false);
+        if (reloadBar != null) reloadBar.gameObject.SetActive(false);
 
-        if (reloadBar != null)
-        {
-            reloadBar.gameObject.SetActive(false);
-        }
-
-        // Enable world-space health bar
+        // 3) ensure the world-space healthBar is active
         if (healthBar != null)
-        {
             healthBar.SetActive(true);
+
+        // 4) assign/fetch the two Images if you haven’t hooked them up in the Inspector
+        if (healthBarBackgroundImage == null && healthBar != null)
+        {
+            var bg = healthBar.transform.Find("Background");
+            if (bg != null)
+                healthBarBackgroundImage = bg.GetComponent<Image>();
+        }
+        if (healthBarFillImage == null && healthSlider != null && healthSlider.fillRect != null)
+        {
+            healthBarFillImage = healthSlider.fillRect.GetComponent<Image>();
+        }
+
+        // 5) set the current slider value
+        if (healthSlider != null)
             healthSlider.value = currentHealth.Value / (float)INITIAL_HEALTH;
-        }
 
-        // Hide their little world-space buff slider until *they* get a buff
-        if (buffSlider != null)
-        {
-            buffSlider.gameObject.SetActive(false);
-            buffSlider.value = 0f;
-        }
+        // 6) set initial alpha = 1 if flashlight ON, else 0
+        float a = flashlightOn.Value ? 1f : 0f;
+        SetHealthBarImagesAlpha(a);
 
-        // Also ensure the local-only bar never shows on remote avatars
-        if (powerUpBar != null)
+        // 7) hide any other remote-only UI
+        if (buffSlider != null) { buffSlider.gameObject.SetActive(false); buffSlider.value = 0f; }
+        if (powerUpBar != null) powerUpBar.gameObject.SetActive(false);
+    }
+
+    /// <summary>
+    /// Helper to modulate alpha on both the Background & Fill images.
+    /// </summary>
+    private void SetHealthBarImagesAlpha(float alpha)
+    {
+        if (healthBarBackgroundImage != null)
         {
-            powerUpBar.gameObject.SetActive(false);
+            var c = healthBarBackgroundImage.color;
+            c.a = alpha;
+            healthBarBackgroundImage.color = c;
+        }
+        if (healthBarFillImage != null)
+        {
+            var c = healthBarFillImage.color;
+            c.a = alpha;
+            healthBarFillImage.color = c;
         }
     }
 
@@ -570,8 +680,6 @@ public class PlayerAvatar : NetworkBehaviour
                 buffSlider.transform.rotation = Quaternion.LookRotation(dir2);
             }
         }
-
-        killFeedText.gameObject.SetActive(false);
     }
 
     /// <summary>
@@ -633,6 +741,26 @@ public class PlayerAvatar : NetworkBehaviour
             // Update the power-up slider for remote players
             UpdateRemotePowerUpUI();
         }
+
+        // If flashlight is ON, keep bar fully visible
+        if (flashlightOn.Value)
+        {
+            // Cancel any running hide coroutine
+            if (_healthBarTimerCoroutine != null)
+            {
+                StopCoroutine(_healthBarTimerCoroutine);
+                _healthBarTimerCoroutine = null;
+            }
+            SetHealthBarImagesAlpha(1f);
+        }
+        else
+        {
+            // Flashlight OFF --> pop the bar in, then fade it out
+            if (_healthBarTimerCoroutine != null)
+                StopCoroutine(_healthBarTimerCoroutine);
+
+            _healthBarTimerCoroutine = StartCoroutine(ShowAndHideHealthBar());
+        }
     }
 
     /// <summary>
@@ -643,6 +771,38 @@ public class PlayerAvatar : NetworkBehaviour
         if (current && IsLocalPlayer)
         {
             healthText.text = "DEAD";
+        }
+    }
+
+    /// <summary>Called on the server by the owning client to flip the flashlight.</summary>
+    [ServerRpc(RequireOwnership = true)]
+    private void ToggleFlashlightServerRpc(ServerRpcParams rpcParams = default)
+    {
+        flashlightOn.Value = !flashlightOn.Value;
+    }
+
+    /// <summary>Whenever that NetworkVariable changes, swap material & light.</summary>
+    private void OnFlashlightStateChanged(bool previous, bool current)
+    {
+        // swap disk material
+        flashlightDiskRenderer.material =
+            current ? _flashlightOnMatInst : _flashlightOffMatInst;
+
+        // swap beam intensity
+        if (flashlightSpotlight != null)
+            flashlightSpotlight.intensity = current
+                ? _defaultSpotIntensity
+                : 0f;
+
+        // swap spill intensity
+        if (flashlightPointLight != null)
+            flashlightPointLight.intensity = current
+                ? _defaultPointIntensity
+                : 0f;
+        // For remote avatars, immediately set the health-bar alpha:
+        if (!IsLocalPlayer)
+        {
+            SetHealthBarImagesAlpha(current ? 1f : 0f);
         }
     }
     #endregion

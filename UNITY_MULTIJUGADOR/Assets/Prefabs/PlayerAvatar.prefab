@@ -880,6 +880,8 @@ MonoBehaviour:
     m_InternalValue: {r: 0, g: 0, b: 0, a: 0}
   isDead:
     m_InternalValue: 0
+  flashlightOn:
+    m_InternalValue: 1
   controller: {fileID: 0}
   playerSpeed: 20
   playerRotationSpeed: 0.75
@@ -892,6 +894,8 @@ MonoBehaviour:
   powerUpText: {fileID: 5570204923578310600}
   healthBar: {fileID: 2065818726493031756}
   healthSlider: {fileID: 2065818725820280340}
+  healthBarBackgroundImage: {fileID: 2065818726325294844}
+  healthBarFillImage: {fileID: 2065818725973842936}
   reloadBar: {fileID: 3024305869113613947}
   powerUpBar: {fileID: 3098886219035370122}
   buffSlider: {fileID: 1374760647852442324}
@@ -899,6 +903,12 @@ MonoBehaviour:
   powerUpFill: {fileID: 5392230611797782784}
   buffSliderFill: {fileID: 8070241968192543504}
   killFeedText: {fileID: 1465376668923386522}
+  flashlightDiskRenderer: {fileID: 5291979629867745286}
+  flashlightOnMaterial: {fileID: 2100000, guid: 0983193b016e53d4cae89ef0868b0294, type: 2}
+  flashlightOffMaterial: {fileID: 2100000, guid: 0b0442c09ae59eb4ea4b454c8dc1b5ea, type: 2}
+  flashlightSpotlight: {fileID: 4810708495865216359}
+  flashlightPointLight: {fileID: 3571101490042084450}
+  _flashlightOn: 1
 --- !u!1 &2065818726325294846
 GameObject:
   m_ObjectHideFlags: 0
@@ -2188,6 +2198,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Flashlight_Player
       objectReference: {fileID: 0}
+    - target: {fileID: 4976086045518786405, guid: d0379669398d59a4888710a45adf0be9, type: 3}
+      propertyPath: m_Name
+      value: LightDisk
+      objectReference: {fileID: 0}
     - target: {fileID: 5769014780244755703, guid: d0379669398d59a4888710a45adf0be9, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.0114
@@ -2236,5 +2250,20 @@ PrefabInstance:
 --- !u!4 &1814818380460823150 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5769014780244755703, guid: d0379669398d59a4888710a45adf0be9, type: 3}
+  m_PrefabInstance: {fileID: 5269264148033705625}
+  m_PrefabAsset: {fileID: 0}
+--- !u!108 &3571101490042084450 stripped
+Light:
+  m_CorrespondingSourceObject: {fileID: 8696228990925638395, guid: d0379669398d59a4888710a45adf0be9, type: 3}
+  m_PrefabInstance: {fileID: 5269264148033705625}
+  m_PrefabAsset: {fileID: 0}
+--- !u!108 &4810708495865216359 stripped
+Light:
+  m_CorrespondingSourceObject: {fileID: 856596732941691902, guid: d0379669398d59a4888710a45adf0be9, type: 3}
+  m_PrefabInstance: {fileID: 5269264148033705625}
+  m_PrefabAsset: {fileID: 0}
+--- !u!23 &5291979629867745286 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 22743107164362399, guid: d0379669398d59a4888710a45adf0be9, type: 3}
   m_PrefabInstance: {fileID: 5269264148033705625}
   m_PrefabAsset: {fileID: 0}
