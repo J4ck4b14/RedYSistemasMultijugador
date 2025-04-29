@@ -6,6 +6,7 @@ TagManager:
   tags:
   - Spawnpoint
   - PowerUpSpawn
+  - Paddle
   layers:
   - Default
   - TransparentFX

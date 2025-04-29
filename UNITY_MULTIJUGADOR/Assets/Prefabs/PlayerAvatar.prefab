@@ -882,6 +882,8 @@ MonoBehaviour:
     m_InternalValue: 0
   flashlightOn:
     m_InternalValue: 1
+  playerName:
+    m_InternalValue: 
   controller: {fileID: 0}
   playerSpeed: 20
   playerRotationSpeed: 0.75
@@ -908,7 +910,6 @@ MonoBehaviour:
   flashlightOffMaterial: {fileID: 2100000, guid: 0b0442c09ae59eb4ea4b454c8dc1b5ea, type: 2}
   flashlightSpotlight: {fileID: 4810708495865216359}
   flashlightPointLight: {fileID: 3571101490042084450}
-  _flashlightOn: 1
 --- !u!1 &2065818726325294846
 GameObject:
   m_ObjectHideFlags: 0
@@ -1699,11 +1700,11 @@ MonoBehaviour:
       m_Calls: []
   m_FontData:
     m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 50
+    m_FontSize: 29
     m_FontStyle: 0
-    m_BestFit: 0
-    m_MinSize: 5
-    m_MaxSize: 50
+    m_BestFit: 1
+    m_MinSize: 15
+    m_MaxSize: 30
     m_Alignment: 2
     m_AlignByGeometry: 0
     m_RichText: 1
