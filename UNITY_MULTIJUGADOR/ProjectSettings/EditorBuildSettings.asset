@@ -12,10 +12,13 @@ EditorBuildSettings:
     path: Assets/Scenes/Doom.unity
     guid: 9e85ba8bc7f8a9947afc8940ab813441
   - enabled: 1
+    path: Assets/Scenes/MainMenu.unity
+    guid: e64daaf5f6a804d4aaed5ff4c6644d90
+  - enabled: 1
     path: Assets/Scenes/Map1.unity
     guid: 556102be9c0a39349b14eac12f0c2535
   - enabled: 1
-    path: Assets/Scenes/MainMenu.unity
-    guid: e64daaf5f6a804d4aaed5ff4c6644d90
+    path: Assets/Scenes/Map2.unity
+    guid: d4ff86e6c6d159b42be7141f9d339f94
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

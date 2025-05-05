@@ -8,38 +8,51 @@ public class LobbyStatusDisplay : MonoBehaviour
     [Tooltip("TextMeshPro UGUI to show server & client count")]
     public TMP_Text statusText;
 
-    void Start()
+    [Tooltip("TextMeshPro UGUI to show the waiting animation/dots")]
+    public TMP_Text waitingText;
+
+    private void Start()
     {
-        // Initial update
-        UpdateStatus();
+        // Initial draw
+        DrawStatus();
 
         // Subscribe to connection events
-        NetworkManager.Singleton.OnClientConnectedCallback += OnClientChanged;
-        NetworkManager.Singleton.OnClientDisconnectCallback += OnClientChanged;
+        NetworkManager.Singleton.OnClientConnectedCallback += _ => DrawStatus();
+        NetworkManager.Singleton.OnClientDisconnectCallback += _ => DrawStatus();
     }
 
-    void OnDestroy()
+    private void OnDestroy()
     {
-        // Clean up
         if (NetworkManager.Singleton != null)
         {
-            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientChanged;
-            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientChanged;
+            NetworkManager.Singleton.OnClientConnectedCallback -= _ => DrawStatus();
+            NetworkManager.Singleton.OnClientDisconnectCallback -= _ => DrawStatus();
         }
     }
 
-    private void OnClientChanged(ulong clientId)
-    {
-        UpdateStatus();
-    }
-
-    private void UpdateStatus()
+    /// <summary>
+    /// Called whenever the client/server count or mode changes.
+    /// </summary>
+    private void DrawStatus()
     {
         bool serverUp = NetworkManager.Singleton.IsServer || NetworkManager.Singleton.IsHost;
         int clientCount = NetworkManager.Singleton.ConnectedClientsList.Count;
 
-        statusText.text =
-            $"Server: {(serverUp ? "Online" : "Offline")}\n" +
-            $"Players: {clientCount}";
+        // Build your two lines
+        string statusLine = $"Server: {(serverUp ? "Online" : "Offline")}\nPlayers: {clientCount}";
+        string waitingLine = serverUp
+            ? (clientCount >= 1 ? "Ready to pick a mode" : "Waiting for players")
+            : "Starting as client...";
+
+        UpdateStatus(statusLine, waitingLine);
+    }
+
+    /// <summary>
+    /// Public API for LobbyManager to override status text.
+    /// </summary>
+    public void UpdateStatus(string statusMessage, string waitingMessage)
+    {
+        if (statusText != null) statusText.text = statusMessage;
+        if (waitingText != null) waitingText.text = waitingMessage;
     }
 }
