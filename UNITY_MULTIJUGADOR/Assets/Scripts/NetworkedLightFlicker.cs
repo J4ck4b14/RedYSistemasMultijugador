@@ -80,22 +80,7 @@ public class NetworkedLightFlicker : NetworkBehaviour
         ApplyEmission(intensity);
 
         if (on && flickerParticles != null)
-        {
-            // Instantiate the prefab at this light's position
-            var ps /*Particle System*/ = Instantiate(
-                flickerParticles,
-                transform.position,
-                Quaternion.identity
-            );
-
-            // Play it
-            ps.Play();
-
-            // Schedule it for destruction after it's done
-            var main = ps.main;
-            float lifetime = main.duration + main.startLifetime.constantMax;
-            Destroy(ps.gameObject, lifetime);
-        }
+            flickerParticles.Play();
     }
 
     // Local helper to push emission into MPB + spotlight

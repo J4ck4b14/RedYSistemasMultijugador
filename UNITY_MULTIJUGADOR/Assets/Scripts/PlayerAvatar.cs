@@ -50,8 +50,6 @@ public class PlayerAvatar : NetworkBehaviour
     /// <summary>Syncs the player’s flashlight on/off state</summary>
     [Tooltip("Is the flashlight on?")]
     public NetworkVariable<bool> flashlightOn = new NetworkVariable<bool>(true);
-
-    public NetworkVariable<string> playerName = new NetworkVariable<string>(string.Empty);
     #endregion
 
     #region Player Components
@@ -149,13 +147,6 @@ public class PlayerAvatar : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
-
-        if (IsLocalPlayer)
-        {
-            // Pull the persisted name and send it to server
-            string name = PlayerPrefs.GetString("PlayerName", $"Player{OwnerClientId}");
-            SetPlayerNameServerRpc(name);
-        }
 
         InitializePlayerIdentity();
         SetupNetworkCallbacks();
@@ -364,12 +355,6 @@ public class PlayerAvatar : NetworkBehaviour
             }
         }
     }
-
-    [ServerRpc]
-    private void SetPlayerNameServerRpc(string name, ServerRpcParams rpcParams = default)
-    {
-        playerName.Value = name;
-    }
     #endregion
 
     #region Movement System
@@ -489,19 +474,15 @@ public class PlayerAvatar : NetworkBehaviour
     /// </summary>
     private string FormatKillMessage(ulong killerId)
     {
-        // Get the killer’s PlayerAvatar on the server
-        var killerAvatar = NetworkManager.Singleton
+        Color killerCol = NetworkManager.Singleton
             .ConnectedClients[killerId]
-            .PlayerObject.GetComponent<PlayerAvatar>();
+            .PlayerObject.GetComponent<PlayerAvatar>()
+            .playerColor.Value;
 
-        string killerName = killerAvatar.playerName.Value;
-        string victimName = playerName.Value; // this avatar’s name
-
-        // (Optional) still color-code names if you like:
-        string killerHex = ColorUtility.ToHtmlStringRGB(killerAvatar.playerColor.Value);
+        string killerHex = ColorUtility.ToHtmlStringRGB(killerCol);
         string victimHex = ColorUtility.ToHtmlStringRGB(playerColor.Value);
 
-        return $"<color=#{killerHex}>{killerName}</color> killed <color=#{victimHex}>{victimName}</color>";
+        return $"<color=#{killerHex}>Player {killerId}</color> killed <color=#{victimHex}>Player {OwnerClientId}</color>";
     }
 
     /// <summary>
@@ -512,10 +493,8 @@ public class PlayerAvatar : NetworkBehaviour
         isDead.Value = true;
         playerColor.Value = DEAD_COLOR;
 
-        // Format with names
+        // build and broadcast
         string msg = FormatKillMessage(killerId);
-
-        // Broadcast to every client
         BroadcastKillClientRpc(msg);
     }
     #endregion
