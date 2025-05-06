@@ -1,159 +1,115 @@
 ﻿using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using UnityEngine;
+using TMPro;
 using Unity.Netcode;
-using UnityEngine.SceneManagement;
+using UnityEngine;
+
+public enum GameMode : int
+{
+    FreeForAll = 0,
+    Teams = 1,
+    CaptureTheFlag = 2
+}
 
 /// <summary>
-/// Simple lobby manager:
-/// 1) Clients pick a mode via UI → PickMode()
-/// 2) Server locks in on first pick: sets currentMode, requiredCount, and scenes
-/// 3) Tracks how many have chosen that mode
-/// 4) When count ≥ requiredCount, server calls Netcode to load all game scenes in sync
-/// Also exposes GetTeam() for Teams/CTF modes.
+/// <para>Tracks host’s chosen game mode and each client's selection in the lobby.</para>
+/// Updates a UI text field via ClientRpc to show server status and count of waiting players for the active mode.
 /// </summary>
 public class LobbyManager : NetworkBehaviour
 {
-    public static LobbyManager Instance { get; private set; }
+    [Header("UI")]
+    [Tooltip("TMP_Text to display server status, mode, and waiting count")]
+    public TMP_Text statusText;
 
-    [Header("Mode Settings")]
-    [Tooltip("How many players each mode requires")]
-    public List<GameModePlayerRequirement> gameModeRequirements;
-    [Tooltip("Which build indices to load per mode")]
-    public List<GameModeSceneConfig> gameModeSceneConfigs;
+    /// <summary>Mode selected by the host (or server) for this lobby</summary>
+    public NetworkVariable<int> currentGameMode = new NetworkVariable<int>(-1,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    // Networked counters for UI feedback
-    public NetworkVariable<int> playerPickCount = new NetworkVariable<int>(0);
-    public NetworkVariable<int> requiredCount = new NetworkVariable<int>(0);
+    // Server-side mapping of clientId -> chosen mode
+    private readonly Dictionary<ulong, int> clientSelections = new Dictionary<ulong, int>();
 
-    // Internal state
-    private readonly Dictionary<ulong, GameMode> clientPicks = new();
-    private bool hasGameStarted = false;
-
-    [HideInInspector] public GameMode currentMode;
-    [HideInInspector] public int[] selectedBuildIndices = new int[0];
-
-    private void Awake()
+    private void OnClientConnected(ulong clientId)
     {
-        // Singleton pattern
-        if (Instance != null && Instance != this) Destroy(gameObject);
-        else Instance = this;
+        clientSelections[clientId] = -1;
+        UpdateClients();
     }
+
+    private void OnClientDisconnected(ulong clientId)
+    {
+        clientSelections.Remove(clientId);
+        UpdateClients();
+    }
+
+    /// <summary>
+    /// Recomputes the waiting count and pushes an update to all clients.
+    /// </summary>
+    private void UpdateClients()
+    {
+        bool serverUp = NetworkManager.Singleton.IsHost || NetworkManager.Singleton.IsServer;
+        int mode = currentGameMode.Value;
+        int waitingCount = clientSelections.Values.Count(v => v == mode);
+
+        UpdateStatusClientRpc(serverUp, mode, waitingCount);
+    }
+
+    /// <summary>
+    /// Runs on every client to update the lobby status UI.
+    /// </summary>
+    [ClientRpc]
+    private void UpdateStatusClientRpc(bool serverUp, int mode, int waitingCount)
+    {
+        statusText.text =
+            $"Server: {(serverUp ? "Online" : "Offline")}\n" +
+            $"Mode: {(mode >= 0 ? ((GameMode)mode).ToString() : "None")}\n" +
+            $"Waiting Players: {waitingCount}";
+    }
+
+    new private void OnDestroy()
+    {
+        if (NetworkManager.Singleton != null && IsServer)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+        }
+    }
+
+    /// <summary>How many clients (including host) have selected the current mode.</summary>
+    public NetworkVariable<int> waitingCount = new NetworkVariable<int>(0);
 
     public override void OnNetworkSpawn()
     {
-        base.OnNetworkSpawn();
-
-        // Update HUD whenever counts change
-        playerPickCount.OnValueChanged += (_, _) => RefreshUI();
-        requiredCount.OnValueChanged += (_, _) => RefreshUI();
-        RefreshUI();
+        if (IsServer)
+        {
+            // Whenever a client connects/disconnects, recalc
+            NetworkManager.Singleton.OnClientConnectedCallback += _ => RecalculateWaitingCount();
+            NetworkManager.Singleton.OnClientDisconnectCallback += _ => RecalculateWaitingCount();
+        }
     }
 
-    /// <summary>
-    /// Called by client UI when you click a mode button.
-    /// </summary>
-    public void PickMode(GameMode mode)
-        => PickModeServerRpc((int)mode);
+    /// <summary>Call this from any place you change a client's mode or the host changes the lobby mode.</summary>
+    private void RecalculateWaitingCount()
+    {
+        int mode = currentGameMode.Value;
+        // Count server-spawned clients whose selectedGameMode == mode
+        int count = NetworkManager.Singleton.ConnectedClientsList
+            .Count(c => c.PlayerObject
+                       .GetComponent<PlayerAvatar>()
+                       .selectedGameMode.Value == mode);
+        waitingCount.Value = count;
+    }
 
     [ServerRpc(RequireOwnership = false)]
-    private void PickModeServerRpc(int modeInt, ServerRpcParams rpc = default)
+    public void SetClientModeServerRpc(int mode, ServerRpcParams rpcParams = default)
     {
-        var clientId = rpc.Receive.SenderClientId;
-        var pick = (GameMode)modeInt;
-        clientPicks[clientId] = pick;
+        // record that client’s choice
+        var clientAvatar = NetworkManager.Singleton.ConnectedClients[rpcParams.Receive.SenderClientId]
+                               .PlayerObject.GetComponent<PlayerAvatar>();
+        clientAvatar.selectedGameMode.Value = mode;
 
-        // On first pick: lock in everything
-        if (requiredCount.Value == 0)
-        {
-            currentMode = pick;
+        // if host called it, also set the lobby‐wide mode
+        if (IsHost) currentGameMode.Value = mode;
 
-            // Set how many are needed
-            requiredCount.Value = gameModeRequirements
-                .First(r => r.gameMode == pick)
-                .requiredPlayers;
-
-            // Cache which scenes to load
-            selectedBuildIndices = gameModeSceneConfigs
-                .First(c => c.gameMode == pick)
-                .sceneBuildIndices;
-        }
-
-        TryStartGame();
-    }
-
-    /// <summary>
-    /// Server counts how many chose the locked mode; if ≥ required, begin.
-    /// </summary>
-    private void TryStartGame()
-    {
-        if (!IsServer || hasGameStarted) return;
-
-        int count = clientPicks.Values.Count(m => m == currentMode);
-        playerPickCount.Value = count;
-
-        if (count >= requiredCount.Value)
-        {
-            hasGameStarted = true;
-            BeginSceneLoad();
-        }
-    }
-
-    /// <summary>
-    /// Updates your lobby HUD via LobbyStatusDisplay.
-    /// </summary>
-    private void RefreshUI()
-    {
-        var disp = FindFirstObjectByType<LobbyStatusDisplay>();
-        if (disp == null) return;
-
-        int curr = playerPickCount.Value;
-        int req = requiredCount.Value;
-        bool ready = (req > 0 && curr >= req);
-
-        disp.UpdateStatus(
-            req == 0
-               ? "Select a mode…"
-               : $"Players: {curr}/{req}",
-            req == 0
-               ? ""
-               : ready
-                   ? "Loading Game…"
-                   : $"Waiting {curr}/{req}"
-        );
-    }
-
-    /// <summary>
-    /// Server‐only: tells Netcode to load all selectedBuildIndices in sync.
-    /// </summary>
-    private void BeginSceneLoad()
-    {
-        if (!IsServer) return;
-
-        for (int i = 0; i < selectedBuildIndices.Length; i++)
-        {
-            string path = SceneUtility.GetScenePathByBuildIndex(selectedBuildIndices[i]);
-            string name = Path.GetFileNameWithoutExtension(path);
-            var mode = (i == 0) ? LoadSceneMode.Single : LoadSceneMode.Additive;
-
-            NetworkManager.SceneManager.LoadScene(name, mode);
-        }
-    }
-
-    /// <summary>
-    /// For Team/CTF modes: splits choosing clients in 0/1 round‐robin; FFA = –1.
-    /// </summary>
-    public int GetTeam(ulong clientId)
-    {
-        if (currentMode == GameMode.FreeForAll) return -1;
-
-        var list = clientPicks
-            .Where(kv => kv.Value == currentMode)
-            .Select(kv => kv.Key)
-            .ToList();
-
-        int idx = list.IndexOf(clientId);
-        return idx < 0 ? -1 : (idx % 2);
+        // now update the waitingCount on the server
+        RecalculateWaitingCount();
     }
 }

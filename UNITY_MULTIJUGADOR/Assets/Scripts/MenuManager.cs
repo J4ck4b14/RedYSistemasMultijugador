@@ -1,13 +1,10 @@
-using System.Collections;
 using UnityEngine;
-using Unity.Netcode;
 using UnityEngine.UI;
+using Unity.Netcode;
 using TMPro;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
-
-
 
 /// <summary>
 /// <para>Handles UI panel transitions, network startup (Host/Client/Server),
@@ -73,15 +70,6 @@ public class MenuManager : MonoBehaviour
         quitButton.onClick.AddListener(OnQuitClicked);
     }
 
-    private IEnumerator DelayedDespawnPlayer()
-    {
-        yield return null; // wait one frame
-
-        var local = NetworkManager.Singleton.SpawnManager.GetLocalPlayerObject();
-        if (local != null)
-            local.GetComponent<NetworkObject>().Despawn(true);
-    }
-
     /// <summary>Validate name, save, and show network options.</summary>
     private void OnPlayClicked()
     {
@@ -100,7 +88,6 @@ public class MenuManager : MonoBehaviour
     private void OnHostClicked()
     {
         NetworkManager.Singleton.StartHost();
-        StartCoroutine(DelayedDespawnPlayer());
         titlePanel.SetActive(false);
         networkModePanel.SetActive(false);
         gameModePanel.SetActive(true);
@@ -109,7 +96,6 @@ public class MenuManager : MonoBehaviour
     private void OnClientClicked()
     {
         NetworkManager.Singleton.StartClient();
-        StartCoroutine(DelayedDespawnPlayer());
         titlePanel.SetActive(false);
         networkModePanel.SetActive(false);
         gameModePanel.SetActive(true);
@@ -118,7 +104,6 @@ public class MenuManager : MonoBehaviour
     private void OnServerClicked()
     {
         NetworkManager.Singleton.StartServer();
-        StartCoroutine(DelayedDespawnPlayer());
         titlePanel.SetActive(false);
         networkModePanel.SetActive(false);
         gameModePanel.SetActive(true);
@@ -127,21 +112,30 @@ public class MenuManager : MonoBehaviour
     /// <summary>Handle Free-For-All button click.</summary>
     private void OnFreeForAllClicked()
     {
-        lobbyManager.PickMode(GameMode.FreeForAll);
+        if (lobbyManager != null)
+        {
+            lobbyManager.SetClientModeServerRpc((int)GameMode.FreeForAll);
+        }
         ShowLobby();
     }
 
     /// <summary>Handle Teams button click.</summary>
     private void OnTeamsClicked()
     {
-        lobbyManager?.PickMode(GameMode.Teams);
+        if (lobbyManager != null)
+        {
+            lobbyManager.SetClientModeServerRpc((int)GameMode.Teams);
+        }
         ShowLobby();
     }
 
     /// <summary>Handle Capture The Flag button click.</summary>
     private void OnCaptureTheFlagClicked()
     {
-        lobbyManager?.PickMode(GameMode.CaptureTheFlag);
+        if (lobbyManager != null)
+        {
+            lobbyManager.SetClientModeServerRpc((int)GameMode.CaptureTheFlag);
+        }
         ShowLobby();
     }
 
@@ -158,7 +152,7 @@ public class MenuManager : MonoBehaviour
     private void OnQuitClicked()
     {
 #if UNITY_EDITOR
-    EditorApplication.isPlaying = false;
+        EditorApplication.isPlaying = false;
 #else
         Application.Quit();
 #endif

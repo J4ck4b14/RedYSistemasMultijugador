@@ -1,10 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
-using Unity.Collections;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
@@ -53,10 +51,7 @@ public class PlayerAvatar : NetworkBehaviour
     [Tooltip("Is the flashlight on?")]
     public NetworkVariable<bool> flashlightOn = new NetworkVariable<bool>(true);
 
-    public NetworkVariable<FixedString32Bytes> playerName = new NetworkVariable<FixedString32Bytes>(new FixedString32Bytes(""));
-
-    [Tooltip("0 = Red, 1 = Blue, -1 = FFA")]
-    public NetworkVariable<int> teamId = new NetworkVariable<int>(-1);
+    public NetworkVariable<string> playerName = new NetworkVariable<string>(string.Empty);
     #endregion
 
     #region Player Components
@@ -121,7 +116,6 @@ public class PlayerAvatar : NetworkBehaviour
     private static Transform localCameraTransform;
 
     #endregion
-
     #region Flashlight Settings
     [Header("Flashlight Settings")]
     [Tooltip("The little disk MeshRenderer whose material we swap when toggling.")]
@@ -153,23 +147,14 @@ public class PlayerAvatar : NetworkBehaviour
     /// Called when player spawns - initializes all the important shiiii
     /// </summary>
     public override void OnNetworkSpawn()
-    {        
-        Debug.Log($"[CLIENT] OnNetworkSpawn for {name}, IsLocalPlayer={IsLocalPlayer}");
+    {
         base.OnNetworkSpawn();
-        if (!IsLocalPlayer) return;
 
-        // Now this will actually run on your client:
-        playerCamera.gameObject.SetActive(true);
-        Debug.Log($"[CLIENT] Activated camera {playerCamera.name}");
-
-        if (playerCamera != null)
+        if (IsLocalPlayer)
         {
-            playerCamera.gameObject.SetActive(true);
-            Debug.Log($"[CLIENT] Activated camera {playerCamera.name}");
-        }
-        else
-        {
-            Debug.LogError($"[CLIENT] playerCamera is NULL on {gameObject.name}! Forgot to assign it in the prefab?");
+            // Pull the persisted name and send it to server
+            string name = PlayerPrefs.GetString("PlayerName", $"Player{OwnerClientId}");
+            SetPlayerNameServerRpc(name);
         }
 
         InitializePlayerIdentity();
@@ -178,7 +163,6 @@ public class PlayerAvatar : NetworkBehaviour
         // Server-only setup
         if (IsServer)
         {
-            teamId.Value = LobbyManager.Instance.GetTeam(OwnerClientId);
             TeleportToSpawnPoint();
             AssignUniqueColor();
         }
@@ -382,7 +366,7 @@ public class PlayerAvatar : NetworkBehaviour
     }
 
     [ServerRpc]
-    private void SetPlayerNameServerRpc(FixedString32Bytes name, ServerRpcParams rpcParams = default)
+    private void SetPlayerNameServerRpc(string name, ServerRpcParams rpcParams = default)
     {
         playerName.Value = name;
     }
@@ -510,8 +494,8 @@ public class PlayerAvatar : NetworkBehaviour
             .ConnectedClients[killerId]
             .PlayerObject.GetComponent<PlayerAvatar>();
 
-        string killerName = killerAvatar.playerName.Value.ToString();
-        string victimName = playerName.Value.ToString(); // this avatar’s name
+        string killerName = killerAvatar.playerName.Value;
+        string victimName = playerName.Value; // this avatar’s name
 
         // (Optional) still color-code names if you like:
         string killerHex = ColorUtility.ToHtmlStringRGB(killerAvatar.playerColor.Value);
@@ -736,21 +720,23 @@ public class PlayerAvatar : NetworkBehaviour
     /// </summary>
     private void UpdateRemotePlayerUI()
     {
-        if (localCameraTransform == null) return;
-        // Health bar
-        if (healthBar != null && Camera.main != null)
+        if (Camera.main != null)
         {
-            Vector3 dir = localCameraTransform.position - healthBar.transform.position;
-            dir.y = 0;
-            healthBar.transform.rotation = Quaternion.LookRotation(dir);
-        }
+            // Health bar
+            if (healthBar != null)
+            {
+                Vector3 dir = localCameraTransform.position - healthBar.transform.position;
+                dir.y = 0;
+                healthBar.transform.rotation = Quaternion.LookRotation(dir);
+            }
 
-        // Buff slider
-        if (buffSlider != null && Camera.main != null)
-        {
-            Vector3 dir2 = localCameraTransform.position - buffSlider.transform.position;
-            dir2.y = 0;
-            buffSlider.transform.rotation = Quaternion.LookRotation(dir2);
+            // Buff slider
+            if (buffSlider != null)
+            {
+                Vector3 dir2 = localCameraTransform.position - buffSlider.transform.position;
+                dir2.y = 0;
+                buffSlider.transform.rotation = Quaternion.LookRotation(dir2);
+            }
         }
     }
 
@@ -1003,66 +989,5 @@ public class PlayerAvatar : NetworkBehaviour
         yield return new WaitForSeconds(duration);
         powerUpText.gameObject.SetActive(false);
     }
-    #endregion
-
-    #region NewSpawnSystem
-
-    [Header("Spawn UI (IMGUI)")]
-    [Tooltip("Drag your PlayerAvatar prefab here")]
-    [SerializeField]
-    private GameObject spawnPrefab;
-
-    // Once the client has clicked “Spawn” we don’t want to keep drawing
-    private bool _spawnRequested = false;
-
-    /// <summary>
-    /// Draw the big centered “Spawn” button on each client
-    /// as soon as they hit the game scene (buildIndex != 0),
-    /// *before* their avatar actually exists.
-    /// </summary>
-    private void OnGUI()
-    {
-        // 1) Only run on pure clients (not the host)  
-        //    and only once (after they click).
-        if (!NetworkManager.Singleton.IsClient ||
-            NetworkManager.Singleton.IsHost ||
-            _spawnRequested)
-            return;
-
-        // 2) Only show in a game scene (assumes your menu is buildIndex 0)
-        if (SceneManager.GetActiveScene().buildIndex == 0)
-            return;
-
-        // 3) Draw a 160×30 button right in the middle of the screen
-        Rect r = new Rect(
-            (Screen.width - 160) / 2,
-            (Screen.height - 30) / 2,
-             160, 30
-        );
-
-        if (GUI.Button(r, "Spawn"))
-        {
-            // hide it next frame
-            _spawnRequested = true;
-            // ask the server to spawn your avatar
-            RequestSpawnServerRpc();
-        }
-    }
-
-    /// <summary>
-    /// Sent from the client to the server to spawn its avatar.
-    /// We instantiate the same prefab you assigned in the inspector
-    /// and give ownership to the requesting client.
-    /// </summary>
-    [ServerRpc(RequireOwnership = false)]
-    private void RequestSpawnServerRpc(ServerRpcParams rpcParams = default)
-    {
-        // Instantiate the prefab you dragged in
-        GameObject go = Instantiate(spawnPrefab);
-        var netObj = go.GetComponent<NetworkObject>();
-        // Spawn *as* that client’s player object
-        netObj.SpawnAsPlayerObject(rpcParams.Receive.SenderClientId, true);
-    }
-
     #endregion
 }

@@ -883,42 +883,7 @@ MonoBehaviour:
   flashlightOn:
     m_InternalValue: 1
   playerName:
-    m_InternalValue:
-      utf8LengthInBytes: 0
-      bytes:
-        offset0000:
-          byte0000: 0
-          byte0001: 0
-          byte0002: 0
-          byte0003: 0
-          byte0004: 0
-          byte0005: 0
-          byte0006: 0
-          byte0007: 0
-          byte0008: 0
-          byte0009: 0
-          byte0010: 0
-          byte0011: 0
-          byte0012: 0
-          byte0013: 0
-          byte0014: 0
-          byte0015: 0
-        byte0016: 0
-        byte0017: 0
-        byte0018: 0
-        byte0019: 0
-        byte0020: 0
-        byte0021: 0
-        byte0022: 0
-        byte0023: 0
-        byte0024: 0
-        byte0025: 0
-        byte0026: 0
-        byte0027: 0
-        byte0028: 0
-        byte0029: 0
-  teamId:
-    m_InternalValue: -1
+    m_InternalValue: 
   controller: {fileID: 0}
   playerSpeed: 20
   playerRotationSpeed: 0.75
@@ -945,7 +910,6 @@ MonoBehaviour:
   flashlightOffMaterial: {fileID: 2100000, guid: 0b0442c09ae59eb4ea4b454c8dc1b5ea, type: 2}
   flashlightSpotlight: {fileID: 4810708495865216359}
   flashlightPointLight: {fileID: 3571101490042084450}
-  spawnPrefab: {fileID: 2065818726080045358}
 --- !u!1 &2065818726325294846
 GameObject:
   m_ObjectHideFlags: 0
