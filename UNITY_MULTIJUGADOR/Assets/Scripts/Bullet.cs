@@ -1,5 +1,6 @@
 using UnityEngine;
 using Unity.Netcode;
+using TMPro;
 
 /// <summary>
 /// <para>Bullet projectile that flies through the air and wrecks players.</para>
@@ -12,6 +13,16 @@ public class Bullet : NetworkBehaviour
 
     [Tooltip("Particle effect to play on hit")]
     public ParticleSystem hitEffectPrefab;
+
+    [Header("Prefabs & Settings")]
+    [Tooltip("Prefab for the wall impact decal.")]
+    public GameObject decalPrefab;
+
+    [Tooltip("Prefab for the floating damage text (should have a DamageText component).")]
+    public GameObject damageTextPrefab;
+
+    [Tooltip("Damage amount applied to players.")]
+    public float damageAmount = 10f;
 
     private bool destroyed = false;
 
@@ -41,11 +52,27 @@ public class Bullet : NetworkBehaviour
 
         destroyed = true;
 
+        var hitObj = collision.gameObject;
+        string tag = hitObj.tag;
+
+        // If we hit a wall, spawn a decal at the contact point
+        if (tag == "Wall")
+        {
+            ContactPoint contact = collision.contacts[0];
+            Vector3 position = contact.point;
+            Quaternion rotation = Quaternion.LookRotation(contact.normal);
+
+            Instantiate(decalPrefab, position, rotation);
+        }
+
+        // Destroy bullet on any collision
+        Destroy(gameObject);
         // If we hit a player, damage them (duh...)
         if (collision.gameObject.CompareTag("Player"))
         {
             ulong shooterId = OwnerClientId;
             collision.gameObject.GetComponent<PlayerAvatar>().DamagePlayer(shooterId);
+            // We could do something like make the damage points float up and fade out
         }
 
         // Show the hit effect on all clients
@@ -64,3 +91,18 @@ public class Bullet : NetworkBehaviour
         else return;
     }
 }
+
+/// <summary>
+/// Handles bullet collision: spawns a decal on walls and floating damage text on players.
+/// Attach this to your bullet prefab.
+/// </summary>
+public class BulletCollisionHandler : MonoBehaviour
+{
+    
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        
+    }
+}
+

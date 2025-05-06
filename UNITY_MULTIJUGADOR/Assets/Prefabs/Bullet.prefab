@@ -175,7 +175,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bulletColor:
     m_InternalValue: {r: 0, g: 0, b: 0, a: 0}
-  hitEffectPrefab: {fileID: 0}
+  hitEffectPrefab: {fileID: 3839578676480029018, guid: 03f17da108a5d2f45996210489decd99, type: 3}
+  decalPrefab: {fileID: 0}
+  damageTextPrefab: {fileID: 0}
+  damageAmount: 10
 --- !u!114 &4338026431171485211
 MonoBehaviour:
   m_ObjectHideFlags: 0
