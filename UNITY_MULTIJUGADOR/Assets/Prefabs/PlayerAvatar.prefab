@@ -734,7 +734,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: 3d6f747ec33de5d438068870747b1112, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -908,7 +908,6 @@ MonoBehaviour:
   flashlightOffMaterial: {fileID: 2100000, guid: 0b0442c09ae59eb4ea4b454c8dc1b5ea, type: 2}
   flashlightSpotlight: {fileID: 4810708495865216359}
   flashlightPointLight: {fileID: 3571101490042084450}
-  _flashlightOn: 1
 --- !u!1 &2065818726325294846
 GameObject:
   m_ObjectHideFlags: 0

@@ -287,7 +287,8 @@ public class PlayerAvatar : NetworkBehaviour
     private void AssignUniqueColor()
     {
         float hue = (float)OwnerClientId / MAX_PLAYERS;
-        playerColor.Value = Color.HSVToRGB(hue, 0.8f, 0.8f);
+        Color color = new Color(hue, 0.8f, 0.8f, 1f);
+        playerColor.Value = color;
     }
     #endregion
 
@@ -405,9 +406,9 @@ public class PlayerAvatar : NetworkBehaviour
     /// <summary>
     /// Applies damage to player (server only)
     /// </summary>
-    public void DamagePlayer(ulong damagerId) // MODIFIED TO ACCEPT DAMAGER ID
+    public int DamagePlayer(ulong damagerId) // MODIFIED TO ACCEPT DAMAGER ID
     {
-        if (!IsServer || isDead.Value) return;
+        if (!IsServer || isDead.Value) return 0;
         PlayerAvatar attacker = NetworkManager.Singleton.ConnectedClients[damagerId]
         .PlayerObject.GetComponent<PlayerAvatar>();
 
@@ -418,6 +419,8 @@ public class PlayerAvatar : NetworkBehaviour
         {
             HandlePlayerDeath(damagerId); // PASS KILLER ID
         }
+
+        return finalDamage;
     }
 
     /// <summary>
@@ -490,12 +493,25 @@ public class PlayerAvatar : NetworkBehaviour
     /// </summary>
     private void HandlePlayerDeath(ulong killerId)
     {
-        isDead.Value = true;
-        playerColor.Value = DEAD_COLOR;
-
         // build and broadcast
         string msg = FormatKillMessage(killerId);
         BroadcastKillClientRpc(msg);
+
+        isDead.Value = true;
+        playerColor.Value = new Color(DEAD_COLOR.r, DEAD_COLOR.g, DEAD_COLOR.b, 0.5f);
+
+        // Disable player collisions
+        CharacterController cc = GetComponent<CharacterController>();
+        if (cc != null) cc.enabled = false;
+
+        Collider[] colliders = GetComponentsInChildren<Collider>();
+        foreach (var col in colliders)
+        {
+            col.enabled = false;
+        }
+
+        flashlightOn.Value = false;
+
     }
     #endregion
 
@@ -704,7 +720,7 @@ public class PlayerAvatar : NetworkBehaviour
             // Health bar
             if (healthBar != null)
             {
-                Vector3 dir = localCameraTransform.position - healthBar.transform.position;
+                Vector3 dir = healthBar.transform.position - localCameraTransform.position;
                 dir.y = 0;
                 healthBar.transform.rotation = Quaternion.LookRotation(dir);
             }
@@ -712,7 +728,7 @@ public class PlayerAvatar : NetworkBehaviour
             // Buff slider
             if (buffSlider != null)
             {
-                Vector3 dir2 = localCameraTransform.position - buffSlider.transform.position;
+                Vector3 dir2 = buffSlider.transform.position - localCameraTransform.position;
                 dir2.y = 0;
                 buffSlider.transform.rotation = Quaternion.LookRotation(dir2);
             }
@@ -805,10 +821,25 @@ public class PlayerAvatar : NetworkBehaviour
     /// </summary>
     private void OnDeathStateChanged(bool previous, bool current)
     {
-        if (current && IsLocalPlayer)
+        if (current)
         {
-            healthText.text = "DEAD";
+            // Hide floating health bar
+            if (healthBar != null)
+                healthBar.SetActive(false);
+
+            if (healthSlider != null)
+                healthSlider.gameObject.SetActive(false);
+
+            // Hide buff slider if active
+            if (buffSlider != null)
+                buffSlider.gameObject.SetActive(false);
+
+            if (IsLocalPlayer && healthText != null)
+            {
+                healthText.text = "DEAD";
+            }
         }
+
     }
 
     /// <summary>Called on the server by the owning client to flip the flashlight.</summary>
@@ -863,13 +894,13 @@ public class PlayerAvatar : NetworkBehaviour
             case PowerUpType.PowerBullet:
                 hasDamageBuff.Value = true;
                 bulletDamageMultiplier = 1.5f;
-                buffEndTime.Value = Time.time + 30f;
+                buffEndTime.Value = (float)(NetworkManager.ServerTime.Time + 30f);
                 break;
 
             case PowerUpType.SpeedCola:
                 hasSpeedBuff.Value = true;
-                playerSpeed = 40.0f; // Cambia si tu velocidad base es diferente
-                buffEndTime.Value = Time.time + 30f;
+                playerSpeed = 40.0f;
+                buffEndTime.Value = (float)(NetworkManager.ServerTime.Time + 30f);
                 break;
         }
 
@@ -890,8 +921,10 @@ public class PlayerAvatar : NetworkBehaviour
     // Verifica si el buff terminó (llamar desde Update)
     private void UpdateBuffState()
     {
-        // Calcula el tiempo restante del buff en base a Time.time
-        float timeLeft = Mathf.Clamp01((buffEndTime.Value - Time.time) / 30);
+        // Reference to the time in the server
+        float now = (float)NetworkManager.Singleton.ServerTime.Time;
+        // Calcula el tiempo restante del buff en base a ServerTime.Time
+        float timeLeft = Mathf.Clamp01((buffEndTime.Value - now) / 30);
 
         // Si hay algún buff activo
         if (hasSpeedBuff.Value || hasDamageBuff.Value)
@@ -948,24 +981,39 @@ public class PlayerAvatar : NetworkBehaviour
     {
         if (!IsLocalPlayer || powerUpText == null) return;
         string message = type switch
-        {
-            PowerUpType.PowerBullet => $"¡Balas Potenciadas! ({duration}s)",
-            PowerUpType.SpeedCola => $"¡Velocidad Aumentada! ({duration}s)",
-            _ => string.Empty
-        };
+{
+    PowerUpType.PowerBullet => "Balas Potenciadas",
+    PowerUpType.SpeedCola => "Velocidad Aumentada",
+    _ => string.Empty
+};
 
         if (powerUpUICoroutine != null)
             StopCoroutine(powerUpUICoroutine);
 
-        powerUpUICoroutine = StartCoroutine(DisplayPowerUpMessage(message, duration));
+        powerUpUICoroutine = StartCoroutine(DisplayPowerUpMessage(type, duration));
     }
 
     // Corrutina que muestra el mensaje durante la duración del buff
-    private IEnumerator DisplayPowerUpMessage(string message, float duration)
+    private IEnumerator DisplayPowerUpMessage(PowerUpType type, float duration)
     {
-        powerUpText.text = message;
         powerUpText.gameObject.SetActive(true);
-        yield return new WaitForSeconds(duration);
+
+        float endTime = Time.time + duration;
+
+        while (Time.time < endTime)
+        {
+            float remaining = endTime - Time.time;
+            string label = type switch
+            {
+                PowerUpType.PowerBullet => "Power",
+                PowerUpType.SpeedCola => "Speed",
+                _ => "Buff"
+            };
+
+            powerUpText.text = $"{label}: {remaining:F1}s"; // One decimal
+            yield return null;
+        }
+
         powerUpText.gameObject.SetActive(false);
     }
     #endregion

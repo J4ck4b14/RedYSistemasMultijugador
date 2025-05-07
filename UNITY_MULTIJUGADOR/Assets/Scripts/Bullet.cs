@@ -8,11 +8,20 @@ using TMPro;
 /// </summary>
 public class Bullet : NetworkBehaviour
 {
+    public enum HitEffectType : byte
+    {
+        Wall,
+        Blood
+    }
+
     [Tooltip("Bullet color - syncs across network")]
     public NetworkVariable<Color> bulletColor = new NetworkVariable<Color>();
 
     [Tooltip("Particle effect to play on hit")]
-    public ParticleSystem hitEffectPrefab;
+    public ParticleSystem bloodEffectPrefab;
+
+    [Tooltip("Particle effect to play on hit")]
+    public ParticleSystem wallEffectPrefab;
 
     [Header("Prefabs & Settings")]
     [Tooltip("Prefab for the wall impact decal.")]
@@ -55,54 +64,101 @@ public class Bullet : NetworkBehaviour
         var hitObj = collision.gameObject;
         string tag = hitObj.tag;
 
+        ContactPoint contact = collision.contacts[0];
+
         // If we hit a wall, spawn a decal at the contact point
         if (tag == "Wall")
         {
-            ContactPoint contact = collision.contacts[0];
-            Vector3 position = contact.point;
-            Quaternion rotation = Quaternion.LookRotation(contact.normal);
+            NetworkObject netObj = hitObj.GetComponent<NetworkObject>();
 
-            Instantiate(decalPrefab, position, rotation);
+            if (netObj != null)
+            {
+                ShowWallDecalClientRpc(contact.point, transform.forward, contact.normal, netObj);
+            }
+            else
+            {
+                // Pass an empty reference — decal will still spawn without parenting
+                ShowWallDecalClientRpc(contact.point, transform.forward, contact.normal, default);
+            }
+
+            ShowHitEffectClientRpc(contact.point, contact.normal, HitEffectType.Wall);
         }
 
-        // Destroy bullet on any collision
-        Destroy(gameObject);
         // If we hit a player, damage them (duh...)
         if (collision.gameObject.CompareTag("Player"))
         {
             ulong shooterId = OwnerClientId;
-            collision.gameObject.GetComponent<PlayerAvatar>().DamagePlayer(shooterId);
-            // We could do something like make the damage points float up and fade out
+            var avatar = collision.gameObject.GetComponent<PlayerAvatar>();
+            int realDamage = avatar.DamagePlayer(OwnerClientId); // Like Phil Swift with Flex Seal says...
+
+            Vector3 hitPoint = contact.point;
+            Vector3 directionToShooter = (transform.forward).normalized;
+            Vector3 offset = directionToShooter * 0.01f;
+
+            // Instantiate floating damage text on all clients
+            ShowDamageTextClientRpc(hitPoint, realDamage);
+            ShowHitEffectClientRpc(hitPoint + offset, directionToShooter, HitEffectType.Blood); // Blood slightly off the character for clearer vision
         }
 
-        // Show the hit effect on all clients
-        ShowHitEffectClientRpc(collision.GetContact(0).point);
         GetComponent<NetworkObject>().Despawn(true);
+
+        // Destroy bullet on any collision
+        Destroy(gameObject);
     }
 
     /// <summary>
-    /// Make fancy particles (GLITTER) appear when bullet hits something (ALL THE GIRLS ARE GIRLING, GIRLING)
+    /// Make fancy particles (GLITTER[or bl00d]) appear when bullet hits something (ALL THE GIRLS ARE GIRLING, GIRLING)
     /// </summary>
     [ClientRpc]
-    private void ShowHitEffectClientRpc(Vector3 pos)
+    private void ShowHitEffectClientRpc(Vector3 pos, Vector3 directionToShooter, HitEffectType effectType)
     {
-        if(hitEffectPrefab!=null)
-        Instantiate(hitEffectPrefab, pos, Quaternion.identity);
-        else return;
+        ParticleSystem prefabToSpawn = null;
+
+        switch (effectType)
+        {
+            case HitEffectType.Wall:
+                prefabToSpawn = wallEffectPrefab;
+                break;
+            case HitEffectType.Blood:
+                prefabToSpawn = bloodEffectPrefab;
+                break;
+        }
+
+        if (prefabToSpawn == null) return;
+
+        // Face the shooter (blood sprays away from the body)
+        Quaternion rotation = Quaternion.LookRotation(directionToShooter);
+        Instantiate(prefabToSpawn, pos, rotation);
     }
-}
-
-/// <summary>
-/// Handles bullet collision: spawns a decal on walls and floating damage text on players.
-/// Attach this to your bullet prefab.
-/// </summary>
-public class BulletCollisionHandler : MonoBehaviour
-{
     
-
-    private void OnCollisionEnter(Collision collision)
+    [ClientRpc]
+    private void ShowDamageTextClientRpc(Vector3 pos, float damage)
     {
-        
+        if (damageTextPrefab == null) return;
+
+        GameObject obj = Instantiate(damageTextPrefab, pos, Quaternion.identity);
+        var dmgText = obj.GetComponent<DamageText>();
+        if (dmgText != null)
+        {
+            dmgText.Initialize(damage);
+        }
+    }
+
+    [ClientRpc]
+    private void ShowWallDecalClientRpc(Vector3 position, Vector3 forward, Vector3 normal, NetworkObjectReference targetRef)
+    {
+        if (decalPrefab == null) return;
+
+        Vector3 offsetPos = position + normal * 0.025f;
+        Quaternion rotation = Quaternion.LookRotation(forward);
+
+        GameObject decal = Instantiate(decalPrefab, offsetPos, rotation);
+
+        // Try to parent the decal if the target was passed
+        if (targetRef.TryGet(out NetworkObject targetObj))
+        {
+            decal.transform.SetParent(targetObj.transform, true);
+        }
     }
 }
 

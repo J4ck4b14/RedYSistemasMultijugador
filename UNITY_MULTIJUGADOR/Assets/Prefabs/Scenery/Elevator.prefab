@@ -270,7 +270,7 @@ GameObject:
   - component: {fileID: 8583591960594548051}
   m_Layer: 0
   m_Name: SideJamb
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 2147483647
@@ -486,7 +486,7 @@ GameObject:
   - component: {fileID: 5322326255629091159}
   m_Layer: 0
   m_Name: Plane
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -647,7 +647,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1900150745
+  GlobalObjectIdHash: 2594020267
   InScenePlacedSourceGlobalObjectIdHash: 0
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
@@ -1004,7 +1004,7 @@ GameObject:
   - component: {fileID: 6606359929024305979}
   m_Layer: 0
   m_Name: Elevator
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1043,9 +1043,10 @@ GameObject:
   - component: {fileID: 4608437800238777736}
   - component: {fileID: 2874609152001242691}
   - component: {fileID: 7163458015834827444}
+  - component: {fileID: 5580297488965527080}
   m_Layer: 0
   m_Name: DoorL
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1139,6 +1140,27 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &5580297488965527080
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1337852964215686691}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  GlobalObjectIdHash: 0
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 1
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
 --- !u!1 &1489806356279595243
 GameObject:
   m_ObjectHideFlags: 0
@@ -1360,7 +1382,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 3938215480
+  GlobalObjectIdHash: 4118213689
   InScenePlacedSourceGlobalObjectIdHash: 0
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
@@ -1688,7 +1710,7 @@ GameObject:
   - component: {fileID: 7036484115918667475}
   m_Layer: 0
   m_Name: 2+1x2Wall
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2186,7 +2208,7 @@ GameObject:
   - component: {fileID: 7213290266433456968}
   m_Layer: 0
   m_Name: 2+1x2Wall
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 2147483647
@@ -2295,7 +2317,7 @@ GameObject:
   - component: {fileID: 4689245769428263933}
   m_Layer: 0
   m_Name: SideJamb
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 2147483647
@@ -2511,7 +2533,7 @@ GameObject:
   - component: {fileID: 7013388827069478918}
   m_Layer: 0
   m_Name: SideJamb
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 2147483647
@@ -2619,7 +2641,7 @@ GameObject:
   - component: {fileID: 2342938870131834370}
   m_Layer: 0
   m_Name: Cylinder
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3162,7 +3184,7 @@ GameObject:
   - component: {fileID: 1700659459751034680}
   m_Layer: 0
   m_Name: Plane
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3379,7 +3401,7 @@ GameObject:
   - component: {fileID: 844560328201785243}
   m_Layer: 0
   m_Name: 2+1x2Wall
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 2147483647
@@ -3767,7 +3789,7 @@ GameObject:
   - component: {fileID: 1935004240600639680}
   m_Layer: 0
   m_Name: 2+1x2Wall
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3908,7 +3930,7 @@ GameObject:
   - component: {fileID: 154325944022972714}
   m_Layer: 0
   m_Name: 2+1x2Wall
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 2147483647
@@ -4017,7 +4039,7 @@ GameObject:
   - component: {fileID: 5046032254063067214}
   m_Layer: 0
   m_Name: 2+1x2Wall
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4127,7 +4149,7 @@ GameObject:
   - component: {fileID: 126547997950127876}
   m_Layer: 0
   m_Name: 2+1x2Wall
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4612,7 +4634,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 575725477
+  GlobalObjectIdHash: 198931566
   InScenePlacedSourceGlobalObjectIdHash: 0
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
@@ -4685,9 +4707,10 @@ GameObject:
   - component: {fileID: 4589565461636127331}
   - component: {fileID: 6440208639355204328}
   - component: {fileID: 8135042153467449281}
+  - component: {fileID: 4742570823599686214}
   m_Layer: 0
   m_Name: DoorL
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4781,6 +4804,27 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &4742570823599686214
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6223333175709930808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  GlobalObjectIdHash: 0
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 1
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
 --- !u!1 &6250727365348397115
 GameObject:
   m_ObjectHideFlags: 0
@@ -5193,7 +5237,7 @@ GameObject:
   - component: {fileID: 6952580966706148372}
   m_Layer: 0
   m_Name: Cylinder
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5335,7 +5379,7 @@ GameObject:
   - component: {fileID: 7337544216712895380}
   m_Layer: 0
   m_Name: SideJamb
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 2147483647
@@ -5537,7 +5581,7 @@ GameObject:
   - component: {fileID: 4712776090719387022}
   m_Layer: 0
   m_Name: 2+1x2Wall
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5895,7 +5939,7 @@ GameObject:
   - component: {fileID: 4166371378192228575}
   m_Layer: 0
   m_Name: 2+1x2Wall
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 2147483647
@@ -6253,7 +6297,7 @@ GameObject:
   - component: {fileID: 8128577355710033679}
   m_Layer: 0
   m_Name: 2+1x2Wall
-  m_TagString: Untagged
+  m_TagString: Wall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -6471,7 +6515,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3185327405017889625, guid: 6afaacbd143e74d4989cb051070b9d2a, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 341552564
+      value: 3970628365
       objectReference: {fileID: 0}
     - target: {fileID: 3185327405017889625, guid: 6afaacbd143e74d4989cb051070b9d2a, type: 3}
       propertyPath: InScenePlacedSourceGlobalObjectIdHash

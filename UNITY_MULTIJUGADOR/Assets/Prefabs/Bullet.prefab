@@ -139,7 +139,7 @@ Rigidbody:
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 112
-  m_CollisionDetection: 0
+  m_CollisionDetection: 1
 --- !u!114 &2299458973326846677
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -175,9 +175,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bulletColor:
     m_InternalValue: {r: 0, g: 0, b: 0, a: 0}
-  hitEffectPrefab: {fileID: 3839578676480029018, guid: 03f17da108a5d2f45996210489decd99, type: 3}
-  decalPrefab: {fileID: 0}
-  damageTextPrefab: {fileID: 0}
+  bloodEffectPrefab: {fileID: 3839578676480029018, guid: c2a2eefc918680049bd7615d8cbc3ed4, type: 3}
+  wallEffectPrefab: {fileID: 3839578676480029018, guid: e24a0c073e8e539478efaea457172ad8, type: 3}
+  decalPrefab: {fileID: 2209066459688905554, guid: be7c5f92a6380434ea7dc4738c39aa2a, type: 3}
+  damageTextPrefab: {fileID: 643344424973032493, guid: 1ffcc0561a7c69240bc4e7a7bfb17d72, type: 3}
   damageAmount: 10
 --- !u!114 &4338026431171485211
 MonoBehaviour:
