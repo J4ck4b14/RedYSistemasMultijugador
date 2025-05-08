@@ -14,7 +14,6 @@ public class PlayerAvatar : NetworkBehaviour
 {
     #region Comments & Future updates
     /*
-     * How cool would it be if we had a text in the player to upload info EVERY-shooter-game style?
      * 
      */
     #endregion
@@ -85,6 +84,16 @@ public class PlayerAvatar : NetworkBehaviour
     private float localCooldownEndTime = 0f;
     #endregion
 
+    #region Melee System
+
+    private const float MELEE_RANGE = 1.5f;
+    private const float MELEE_ANGLE = 60f; // cone angle for the hit
+    private const float MELEE_COOLDOWN = 1.5f;
+
+    private float meleeCooldownEndTime = 0f;
+
+    #endregion
+
     #region UI Elements
     [Header("UI Elements")]
     public Camera playerCamera;
@@ -113,7 +122,10 @@ public class PlayerAvatar : NetworkBehaviour
 
     private static Transform localCameraTransform;
 
+    private VignetteController vignetteController;
+
     #endregion
+
     #region Flashlight Settings
     [Header("Flashlight Settings")]
     [Tooltip("The little disk MeshRenderer whose material we swap when toggling.")]
@@ -134,6 +146,12 @@ public class PlayerAvatar : NetworkBehaviour
     private float _defaultPointIntensity;
     #endregion
 
+    #region Phantom
+
+    public GameObject phantomPrefab;
+
+    #endregion
+
     #endregion
 
     /* -------------------------------------------------------------------------- */
@@ -150,6 +168,13 @@ public class PlayerAvatar : NetworkBehaviour
 
         InitializePlayerIdentity();
         SetupNetworkCallbacks();
+        /*
+        foreach (Camera cam in Camera.allCameras)
+            if (cam != playerCamera)
+            {
+                cam.gameObject.SetActive(false);
+            }
+            else { cam.gameObject.SetActive(true); }*/
 
         // Server-only setup
         if (IsServer)
@@ -172,6 +197,8 @@ public class PlayerAvatar : NetworkBehaviour
         flashlightOn.OnValueChanged += OnFlashlightStateChanged;
         // and apply whichever state we already have (true = flash ON)
         OnFlashlightStateChanged(!flashlightOn.Value, flashlightOn.Value);
+
+        vignetteController = Object.FindFirstObjectByType<VignetteController>();
     }
     // This is just to prevent a deferred trigger warning that showed up
     public override void OnNetworkDespawn()
@@ -307,6 +334,15 @@ public class PlayerAvatar : NetworkBehaviour
         float axisV = Input.GetAxis("Vertical");
         bool shootPressed = Input.GetMouseButton(0);
 
+        bool meleePressed = Input.GetMouseButtonDown(1); // Right click
+
+        if (meleePressed && Time.time >= meleeCooldownEndTime)
+        {
+            meleeCooldownEndTime = Time.time + MELEE_COOLDOWN;
+            PerformMeleeLocal(); // Client animation
+            MeleeAttackServerRpc(); // Server logic
+        }
+
         // toggle flashlight on the server (syncs out to all clients)
         if (Input.GetButtonDown("Flashlight"))
             ToggleFlashlightServerRpc();
@@ -399,6 +435,15 @@ public class PlayerAvatar : NetworkBehaviour
 
         // Apply velocity
         bullet.GetComponent<Rigidbody>().linearVelocity = bulletSpawnPoint.forward * shootVelocity;
+
+        if (IsServer)
+        {
+            Vector3 shooterPos = transform.position;
+            Quaternion shooterRot = transform.rotation;
+            ulong shooterId = OwnerClientId;
+
+            ShowPhantomClientRpc(shooterPos, shooterRot, shooterId);
+        }
     }
     #endregion
 
@@ -423,6 +468,7 @@ public class PlayerAvatar : NetworkBehaviour
         return finalDamage;
     }
 
+    #region KillFeed
     /// <summary>
     /// Called on the server to broadcast a new kill message to *all* clients.
     /// </summary>
@@ -487,6 +533,7 @@ public class PlayerAvatar : NetworkBehaviour
 
         return $"<color=#{killerHex}>Player {killerId}</color> killed <color=#{victimHex}>Player {OwnerClientId}</color>";
     }
+    #endregion
 
     /// <summary>
     /// Call this on the **server** when someone dies.
@@ -580,6 +627,44 @@ public class PlayerAvatar : NetworkBehaviour
         SetHealthBarImagesAlpha(0f);
         _healthBarTimerCoroutine = null;
     }
+    #endregion
+
+    #region Melee
+
+    private void PerformMeleeLocal()
+    {
+        // Animate gun forward and back
+        if (bulletSpawnPoint != null)
+        {
+            StartCoroutine(SwingGun());
+        }
+    }
+
+    private IEnumerator SwingGun()
+    {
+        Transform gun = bulletSpawnPoint;
+        Quaternion startRot = gun.localRotation;
+        Quaternion endRot = startRot * Quaternion.Euler(-40f, 0f, 0f);
+
+        float t = 0f;
+        while (t < 0.1f)
+        {
+            t += Time.deltaTime * 10f;
+            gun.localRotation = Quaternion.Slerp(startRot, endRot, t);
+            yield return null;
+        }
+
+        t = 0f;
+        while (t < 0.1f)
+        {
+            t += Time.deltaTime * 10f;
+            gun.localRotation = Quaternion.Slerp(endRot, startRot, t);
+            yield return null;
+        }
+
+        gun.localRotation = startRot;
+    }
+
     #endregion
 
     #endregion
@@ -760,6 +845,28 @@ public class PlayerAvatar : NetworkBehaviour
         }
     }
 
+    private IEnumerator CameraShake(float duration = 0.1f, float magnitude = 0.2f)
+    {
+        if (playerCamera == null) yield break;
+
+        Vector3 originalPos = playerCamera.transform.localPosition;
+
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            float x = Random.Range(-1f, 1f) * magnitude;
+            float y = Random.Range(-1f, 1f) * magnitude;
+
+            playerCamera.transform.localPosition = originalPos + new Vector3(x, y, 0f);
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        playerCamera.transform.localPosition = originalPos;
+    }
+
     #endregion
 
     /* -------------------------------------------------------------------------- */
@@ -782,6 +889,10 @@ public class PlayerAvatar : NetworkBehaviour
     {
         if (IsLocalPlayer)
         {
+            /*if(current < previous)
+            {
+                vignetteController.TriggerVignette(Color.red, 0.4f);
+            }*/
             healthText.text = $"HP: {current}";
         }
         else
@@ -873,6 +984,63 @@ public class PlayerAvatar : NetworkBehaviour
             SetHealthBarImagesAlpha(current ? 1f : 0f);
         }
     }
+
+    #region Melee Network
+
+    [ServerRpc]
+    private void MeleeAttackServerRpc()
+    {
+        Collider[] hits = Physics.OverlapSphere(transform.position + transform.forward * 1.5f, MELEE_RANGE);
+        foreach (var hit in hits)
+        {
+            if (hit.CompareTag("Player") && hit.gameObject != this.gameObject)
+            {
+                var victim = hit.GetComponent<PlayerAvatar>();
+                if (victim != null && !victim.isDead.Value)
+                {
+                    Vector3 toVictim = (victim.transform.position - transform.position).normalized;
+                    float angle = Vector3.Angle(transform.forward, toVictim);
+
+                    int damage = (angle > 120f)
+                        ? victim.currentHealth.Value // Backstab = kill
+                        : Random.Range(BULLET_DAMAGE * 2, 101);
+
+                    victim.currentHealth.Value -= damage;
+
+                    victim.TriggerCameraShakeClientRpc(0.1f, 0.25f); // victim shake
+                    TriggerCameraShakeClientRpc(0.08f, 0.15f);        // attacker shake
+
+                    victim.TriggerHitPauseClientRpc();
+
+                    if (victim.currentHealth.Value <= 0)
+                        victim.HandlePlayerDeath(OwnerClientId);
+
+                    break; // Only hit one player
+                }
+            }
+        }
+    }
+
+    [ClientRpc]
+    private void TriggerHitPauseClientRpc()
+    {
+        StartCoroutine(HitPause());
+    }
+
+    private IEnumerator HitPause()
+    {
+        Time.timeScale = 0f;
+        yield return new WaitForSecondsRealtime(0.05f);
+        Time.timeScale = 1f;
+    }
+
+    [ClientRpc]
+    private void TriggerCameraShakeClientRpc(float duration, float magnitude)
+    {
+        if (!IsLocalPlayer || playerCamera == null) return;
+        StartCoroutine(CameraShake(duration, magnitude));
+    }
+
     #endregion
 
     #region Power Up System
@@ -889,18 +1057,30 @@ public class PlayerAvatar : NetworkBehaviour
         {
             case PowerUpType.HP:
                 currentHealth.Value = INITIAL_HEALTH;
+                if (IsLocalPlayer && vignetteController != null)
+                {
+                    vignetteController.TriggerVignette(Color.green, 0.4f);
+                }
                 break;
 
             case PowerUpType.PowerBullet:
                 hasDamageBuff.Value = true;
                 bulletDamageMultiplier = 1.5f;
                 buffEndTime.Value = (float)(NetworkManager.ServerTime.Time + 30f);
+                if (IsLocalPlayer && vignetteController != null)
+                {
+                    vignetteController.TriggerVignette(Color.yellow, 30f, 0.5f); // Half-screen coverage
+                }
                 break;
 
             case PowerUpType.SpeedCola:
                 hasSpeedBuff.Value = true;
                 playerSpeed = 40.0f;
                 buffEndTime.Value = (float)(NetworkManager.ServerTime.Time + 30f);
+                if (IsLocalPlayer && vignetteController != null)
+                {
+                    vignetteController.TriggerVignette(Color.cyan, 30f, 0.5f); // Half-screen coverage
+                }
                 break;
         }
 
@@ -1015,6 +1195,36 @@ public class PlayerAvatar : NetworkBehaviour
         }
 
         powerUpText.gameObject.SetActive(false);
+    }
+    #endregion
+
+    #region Phantom
+
+    [ClientRpc]
+    private void ShowPhantomClientRpc(Vector3 position, Quaternion rotation, ulong shooterId)
+    {
+        // Only show phantom if this is NOT the shooter
+        if (NetworkManager.Singleton.LocalClientId == shooterId) return;
+
+        GameObject ghost = Instantiate(phantomPrefab, position, rotation);
+        ghost.GetComponent<Material>().SetColor("PhantomColor", playerColor.Value);
+        Destroy(ghost, 3f);
+        ghost.GetComponent<Phantom>().Init(3f, ghost.transform);
+
+    }
+
+    #endregion
+
+    #endregion
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   DEBUGGING                                */
+    /* -------------------------------------------------------------------------- */
+    #region MeleeHitbox
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position + transform.forward * 1.5f, MELEE_RANGE);
     }
     #endregion
 }

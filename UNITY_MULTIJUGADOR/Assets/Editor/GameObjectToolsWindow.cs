@@ -20,6 +20,12 @@ public class GameObjectToolsWindow : EditorWindow
     [Tooltip("When enabled, append sequential numbers after renaming.")]
     bool _enableNumbering = true;
 
+    [Tooltip("When enabled, all characters will be replaced.")]
+    bool _fullRename = true;
+
+    [Tooltip("When enabled, all characters will be replaced.")]
+    string _newName = "";
+
     [Tooltip("Number of characters to remove from the start of each name.")]
     int _removeFromStart = 0;
 
@@ -151,12 +157,22 @@ public class GameObjectToolsWindow : EditorWindow
         _enableNumbering = EditorGUILayout.Toggle(
             new GUIContent("Enable Numbering", "If unchecked, only character removal is applied."), _enableNumbering);
 
-        // Fields for character removal
-        _removeFromStart = EditorGUILayout.IntField(
-            new GUIContent("Remove From Start", "Number of characters to strip off the front of the name."), _removeFromStart);
+        // Toggle full rename on/off
+        _fullRename = EditorGUILayout.Toggle(
+    new GUIContent("Full Rename", "When enabled, all existing characters will be replaced with a new name."), _fullRename);
 
-        _removeFromEnd = EditorGUILayout.IntField(
-            new GUIContent("Remove From End", "Number of characters to strip off the end of the name."), _removeFromEnd);
+        if (_fullRename)
+        {
+            _newName = EditorGUILayout.TextField(new GUIContent("New Name", "Name to completely replace existing names."), _newName);
+        }
+        else
+        {
+            _removeFromStart = EditorGUILayout.IntField(
+                new GUIContent("Remove From Start", "Number of characters to strip off the front of the name."), _removeFromStart);
+
+            _removeFromEnd = EditorGUILayout.IntField(
+                new GUIContent("Remove From End", "Number of characters to strip off the end of the name."), _removeFromEnd);
+        }
 
         // Only show numbering options if enabled
         if (_enableNumbering)
@@ -215,10 +231,18 @@ public class GameObjectToolsWindow : EditorWindow
             int endCount = Mathf.Clamp(_removeFromEnd, 0, originalName.Length - startIdx);
 
             // Compute the base name after stripping
-            string baseName = originalName.Substring(
-                startIdx,
-                originalName.Length - startIdx - endCount
-            );
+            string baseName;
+            if (_fullRename)
+            {
+                baseName = _newName;
+            }
+            else
+            {
+                baseName = originalName.Substring(
+                    startIdx,
+                    originalName.Length - startIdx - endCount
+                );
+            }
 
             // Append numbered suffix if needed
             if (_enableNumbering)
